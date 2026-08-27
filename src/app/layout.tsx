@@ -4,6 +4,7 @@ import "./globals.css";
 import "./dashboard.css";
 import "./workflow.css";
 import "./schedule.css";
+import "./home-hero.css";
 
 const dmSans = DM_Sans({
   variable: "--font-sans",
