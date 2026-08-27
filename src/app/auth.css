@@ -11,7 +11,7 @@
   inset: 0;
   z-index: 100;
   padding: 24px;
-  background: rgba(8, 12, 11, .66);
+  background: #090b0a;
   display: grid;
   place-items: center;
 }
@@ -20,20 +20,42 @@
   width: min(430px, 100%);
   padding: 34px;
   border-top: 5px solid var(--p-teal, #007f87);
-  background: #fff;
-  box-shadow: 0 28px 80px rgba(0, 0, 0, .35);
+  color: #fff;
+  background: #151817;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, .55);
 }
 
-.login-mark {
-  width: 48px;
-  height: 48px;
-  margin-bottom: 22px;
-  border: 2px solid #111;
-  display: grid;
-  place-items: center;
-  font-size: 24px;
-  font-weight: 900;
+.login-logo {
+  width: 220px;
+  min-height: 58px;
+  margin: 0 auto 26px;
+  padding: 8px 10px;
+  border: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
 }
+
+.login-logo img,
+.brand-home img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.proto-brand .brand-home {
+  width: 112px;
+  height: 34px;
+  padding: 5px 7px;
+  border: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.proto-brand .brand-home:hover { background: #252827; }
 
 .login-dialog > span {
   color: #007f87;
@@ -45,7 +67,7 @@
 
 .login-dialog h1 {
   margin: 8px 0 0;
-  color: #111;
+  color: #fff;
   font-family: var(--font-display), serif;
   font-size: 34px;
   line-height: 1.05;
@@ -54,7 +76,7 @@
 
 .login-dialog > p {
   margin: 12px 0 24px;
-  color: #69706c;
+  color: #a3aaa6;
   font-size: 11px;
   line-height: 1.55;
 }
@@ -62,7 +84,7 @@
 .login-dialog label {
   display: block;
   margin-top: 14px;
-  color: #555d59;
+  color: #a3aaa6;
   font-size: 8px;
   font-weight: 800;
   text-transform: uppercase;
@@ -73,10 +95,10 @@
   height: 44px;
   margin-top: 6px;
   padding: 0 12px;
-  border: 1px solid #d6d9d5;
+  border: 1px solid #3b403e;
   border-radius: 0;
-  color: #111;
-  background: #fff;
+  color: #fff;
+  background: #0d0f0e;
   font: inherit;
   font-size: 11px;
   text-transform: none;
@@ -117,7 +139,7 @@
 .login-dialog > small {
   display: block;
   margin-top: 14px;
-  color: #858b88;
+  color: #858d89;
   font-size: 8px;
   text-align: center;
 }

@@ -127,9 +127,14 @@ export function WisePrototype() {
     setLoggedIn(true);
   };
 
+  const goHome = () => {
+    setActive("Overview");
+    setMenuOpen(false);
+  };
+
   return <><div className={loggedIn ? "prototype-shell" : "prototype-shell auth-locked"} aria-hidden={!loggedIn}>
     <aside className={menuOpen ? "proto-sidebar open" : "proto-sidebar"}>
-      <div className="proto-brand"><span>W</span><div><b>WISE Ops</b><small>Agent command</small></div><button onClick={() => setMenuOpen(false)} aria-label="Close menu"><X size={18}/></button></div>
+      <div className="proto-brand"><button className="brand-home" onClick={goHome} aria-label="Go to home screen"><img src="/images/logo.webp" alt="Qatar Foundation and WISE"/></button><div><small>Agent command</small></div><button onClick={() => setMenuOpen(false)} aria-label="Close menu"><X size={18}/></button></div>
       <div className="summit-pill"><i>W</i><div><b>WISE Summit 2027</b><small>15 April 2027 · Doha</small></div></div>
       <nav><label>Summit lifecycle</label>{nav.map(([label, Icon], index) => <button key={label} className={active === label ? "active" : ""} onClick={() => { setActive(label); setMenuOpen(false); }}><Icon size={17}/><span>{label}</span>{index > 0 && index < 4 && <em>{index}</em>}</button>)}</nav>
       <div className="proto-user"><span>AM</span><div><b>Avery Morgan</b><small>{role}</small></div><button aria-label="Sign out" title="Sign out" onClick={() => setLoggedIn(false)}><LogOut size={16}/></button></div>
@@ -148,7 +153,7 @@ export function WisePrototype() {
     </div>
     <AgentRail agents={agents} logs={logs}/>
     {menuOpen && <button className="proto-scrim" aria-label="Dismiss menu" onClick={() => setMenuOpen(false)}/>} 
-  </div>{!loggedIn&&<div className="login-backdrop"><section className="login-dialog" role="dialog" aria-modal="true" aria-labelledby="login-title"><div className="login-mark">W</div><span>WISE Summit 2027</span><h1 id="login-title">Enter the command center</h1><p>Sign in to monitor summit health, programme readiness, and agent activity.</p><form onSubmit={handleLogin}><label>Email address<input type="email" value={loginEmail} onChange={event=>setLoginEmail(event.target.value)} placeholder="name@wise.org" autoComplete="email" autoFocus/></label><label>Password<input type="password" value={loginPassword} onChange={event=>setLoginPassword(event.target.value)} placeholder="Enter any password" autoComplete="current-password"/></label>{loginError&&<div className="login-error" role="alert">{loginError}</div>}<button type="submit"><LogIn size={16}/>Sign in</button></form><small>Demo access · Any email and password will work</small></section></div>}</>;
+  </div>{!loggedIn&&<div className="login-backdrop"><section className="login-dialog" role="dialog" aria-modal="true" aria-labelledby="login-title"><button className="login-logo" onClick={goHome} aria-label="Go to home screen"><img src="/images/logo.webp" alt="Qatar Foundation and WISE"/></button><span>WISE Summit 2027</span><h1 id="login-title">Enter the command center</h1><p>Sign in to monitor summit health, programme readiness, and agent activity.</p><form onSubmit={handleLogin}><label>Email address<input type="email" value={loginEmail} onChange={event=>setLoginEmail(event.target.value)} placeholder="name@wise.org" autoComplete="email" autoFocus/></label><label>Password<input type="password" value={loginPassword} onChange={event=>setLoginPassword(event.target.value)} placeholder="Enter any password" autoComplete="current-password"/></label>{loginError&&<div className="login-error" role="alert">{loginError}</div>}<button type="submit"><LogIn size={16}/>Sign in</button></form><small>Demo access · Any email and password will work</small></section></div>}</>;
 }
 
 function ExecutiveCenter({ setActive }: { setActive: (stage: Stage) => void }) {
