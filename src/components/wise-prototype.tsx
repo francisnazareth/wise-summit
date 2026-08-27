@@ -137,7 +137,7 @@ export function WisePrototype() {
 
   return <><div className={loggedIn ? "prototype-shell" : "prototype-shell auth-locked"} aria-hidden={!loggedIn}>
     <aside className={menuOpen ? "proto-sidebar open" : "proto-sidebar"}>
-      <div className="proto-brand"><button className="brand-home" onClick={goHome} aria-label="Go to home screen"><img src="/images/logo.webp" alt="Qatar Foundation and WISE"/></button><div><small>Agent command</small></div><button onClick={() => setMenuOpen(false)} aria-label="Close menu"><X size={18}/></button></div>
+      <div className="proto-brand"><button className="brand-home" onClick={goHome} aria-label="Go to home screen"><img src="/images/logo.webp" alt="Qatar Foundation and WISE"/></button><div/><button onClick={() => setMenuOpen(false)} aria-label="Close menu"><X size={18}/></button></div>
       <div className="summit-pill"><i>W</i><div><b>WISE Summit 2027</b><small>15 April 2027 · Doha</small></div></div>
       <nav><label>Summit lifecycle</label>{nav.map(([label, Icon], index) => <button key={label} className={active === label ? "active" : ""} onClick={() => { setActive(label); setMenuOpen(false); }}><Icon size={17}/><span>{label}</span>{index > 0 && index < 4 && <em>{index}</em>}</button>)}</nav>
       <div className="proto-user"><span>AM</span><div><b>Avery Morgan</b><small>{role}</small></div><button aria-label="Sign out" title="Sign out" onClick={() => setLoggedIn(false)}><LogOut size={16}/></button></div>
