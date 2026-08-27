@@ -10,6 +10,9 @@ import {
 
 type Stage = "Overview" | "Strategy" | "Speakers" | "Content" | "Stakeholders" | "Planning" | "Budget" | "Risks" | "Approvals" | "Live Ops" | "Reports";
 type AgentStatus = "complete" | "running" | "queued" | "idle";
+type SpeakerStage = "Identified" | "Invited" | "Accepted" | "Confirmed" | "Travel Planned" | "Ready";
+type SpeakerRecord = { name: string; role: string; region: string; stage: SpeakerStage; score: number };
+type SessionTopic = { id: string; title: string; track: string; speaker?: string; time?: string; location?: string };
 
 const nav: Array<[Stage, typeof Activity]> = [
   ["Overview", LayoutDashboard], ["Strategy", Target], ["Speakers", Users], ["Content", MessageSquareText],
@@ -24,7 +27,8 @@ const initialAgents: Array<{ name: string; task: string; status: AgentStatus }> 
   { name: "Content Curator", task: "Session architecture", status: "running" },
   { name: "Risk Sentinel", task: "Cross-workstream monitoring", status: "complete" },
 ];
-const speakers = [
+const speakerStages: SpeakerStage[] = ["Identified", "Invited", "Accepted", "Confirmed", "Travel Planned", "Ready"];
+const speakers: SpeakerRecord[] = [
   { name: "Candidate 024", role: "Minister of Education", region: "MENA", stage: "Confirmed", score: 96 },
   { name: "Candidate 031", role: "Founder, AI Learning Lab", region: "Asia Pacific", stage: "Accepted", score: 94 },
   { name: "Candidate 018", role: "Director, Global Education Fund", region: "Africa", stage: "Invited", score: 91 },
@@ -38,6 +42,58 @@ const sessions = [
   { time: "10:15", title: "AI, Teachers, and Human Agency", track: "Innovation", owner: "Content Curator", readiness: 68 },
   { time: "11:30", title: "Scaling What Works Lab", track: "Workshop", owner: "Workshop Agent", readiness: 54 },
 ];
+type ProgrammeSession = { title: string; track: string; owner: string; status: string };
+type ProgrammeRow = { label: string; time: string; type: "plenary" | "break" | "slot"; sessions?: ProgrammeSession[] };
+const programmeLocations = ["Auditorium", "Learning Lab", "Policy Studio", "Agora", "Majlis", "Partner Hub"];
+const programmeRows: ProgrammeRow[] = [
+  { label: "Plenary", time: "09:00–10:00", type: "plenary", sessions: [{ title: "Opening Plenary: Education for a Changing World", track: "Plenary", owner: "Strategy Agent", status: "Editorial ready" }] },
+  { label: "Break", time: "10:00–10:30", type: "break" },
+  { label: "Slot 1", time: "10:30–11:15", type: "slot", sessions: [
+    { title: "From Evidence to System Change", track: "Policy", owner: "Content Curator", status: "Speakers confirmed" },
+    { title: "AI, Teachers and Human Agency", track: "Innovation", owner: "Content Curator", status: "Editorial review" },
+    { title: "The New Geography of Learning", track: "Global outlook", owner: "Strategy Agent", status: "Editorial ready" },
+    { title: "Youth Voices on the Future", track: "Roundtable", owner: "Youth Council", status: "Speakers confirmed" },
+    { title: "Building Learning Ecosystems", track: "Workshop", owner: "Workshop Agent", status: "In development" },
+    { title: "Partner Solutions Exchange", track: "Partner session", owner: "Partnerships", status: "Editorial review" },
+  ] },
+  { label: "Break", time: "11:15–11:30", type: "break" },
+  { label: "Slot 2", time: "11:30–12:15", type: "slot", sessions: [
+    { title: "Financing Education Transformation", track: "Policy", owner: "Content Curator", status: "Speakers confirmed" },
+    { title: "Scaling What Works Lab", track: "Workshop", owner: "Workshop Agent", status: "In development" },
+    { title: "Learning Systems That Adapt", track: "Systems", owner: "Strategy Agent", status: "Editorial ready" },
+    { title: "Teacher Leadership Circle", track: "Roundtable", owner: "Content Curator", status: "Editorial review" },
+    { title: "Designing for Neurodiversity", track: "Workshop", owner: "Workshop Agent", status: "Speakers confirmed" },
+    { title: "EdTech Evidence Clinic", track: "Partner session", owner: "Partnerships", status: "In development" },
+  ] },
+  { label: "Lunch", time: "12:15–13:15", type: "break" },
+  { label: "Slot 3", time: "13:15–14:00", type: "slot", sessions: [
+    { title: "Education in an Age of Uncertainty", track: "Global outlook", owner: "Strategy Agent", status: "Editorial ready" },
+    { title: "AI Literacy for Every Learner", track: "Innovation", owner: "Content Curator", status: "Speakers confirmed" },
+    { title: "Evidence Into Action", track: "Policy", owner: "Content Curator", status: "Editorial review" },
+    { title: "Student Agency in Practice", track: "Roundtable", owner: "Youth Council", status: "In development" },
+    { title: "Rapid Prototyping Studio", track: "Workshop", owner: "Workshop Agent", status: "Speakers confirmed" },
+    { title: "Innovation Showcase", track: "Partner session", owner: "Partnerships", status: "Editorial ready" },
+  ] },
+  { label: "Break", time: "14:00–14:20", type: "break" },
+  { label: "Slot 4", time: "14:20–15:05", type: "slot", sessions: [
+    { title: "A New Social Contract for Learning", track: "Policy", owner: "Content Curator", status: "Editorial review" },
+    { title: "Responsible AI by Design", track: "Innovation", owner: "Content Curator", status: "Editorial ready" },
+    { title: "Measuring What Matters", track: "Evidence", owner: "Strategy Agent", status: "Speakers confirmed" },
+    { title: "Ministerial Exchange", track: "Roundtable", owner: "Speaker Lead", status: "Invite in progress" },
+    { title: "Coalition Building Lab", track: "Workshop", owner: "Workshop Agent", status: "In development" },
+    { title: "Future Skills Exchange", track: "Partner session", owner: "Partnerships", status: "Speakers confirmed" },
+  ] },
+  { label: "Break", time: "15:05–15:25", type: "break" },
+  { label: "Slot 5", time: "15:25–16:10", type: "slot", sessions: [
+    { title: "The Policy Adoption Playbook", track: "Policy", owner: "Content Curator", status: "In development" },
+    { title: "Human-Centered Learning Futures", track: "Innovation", owner: "Content Curator", status: "Editorial review" },
+    { title: "Leading System Transformation", track: "Leadership", owner: "Strategy Agent", status: "Speakers confirmed" },
+    { title: "Community-Led Innovation", track: "Roundtable", owner: "Youth Council", status: "Editorial ready" },
+    { title: "Foresight Methods Lab", track: "Workshop", owner: "Workshop Agent", status: "In development" },
+    { title: "From Pilot to Scale", track: "Partner session", owner: "Partnerships", status: "Editorial review" },
+  ] },
+  { label: "Plenary", time: "16:20–17:00", type: "plenary", sessions: [{ title: "Closing Plenary: Commitments for 2026", track: "Plenary", owner: "Strategy Agent", status: "Editorial review" }] },
+];
 const profiles = ["Executive Director", "Strategy Lead", "Speaker Lead", "Content Curator", "Operations Lead"];
 
 export function WisePrototype() {
@@ -49,6 +105,8 @@ export function WisePrototype() {
   const [logs, setLogs] = useState(["Talent Scout ranked 24 education leaders", "Content Curator mapped 4 sessions to system outcomes", "Risk Sentinel cleared policy track dependency"]);
   const [speakerFilter, setSpeakerFilter] = useState("All");
   const [sessionCount, setSessionCount] = useState(4);
+  const [speakerRecords, setSpeakerRecords] = useState(speakers);
+  const [sessionTopics, setSessionTopics] = useState<SessionTopic[]>([]);
 
   const runAgent = (name: string, result: string) => {
     setAgents(current => current.map(agent => agent.name === name ? { ...agent, status: "complete" } : agent));
@@ -69,8 +127,8 @@ export function WisePrototype() {
         <div className="process-rail">{["Strategy", "Speakers", "Content", "Planning", "Execution"].map((step, index) => <button key={step} className={active === step || (active === "Overview" && index === 0) ? "current" : index < 1 ? "done" : ""} onClick={() => index < 3 && setActive(step as Stage)}><span>{index < 1 ? <Check size={13}/> : index + 1}</span><b>{step}</b>{index < 4 && <i/>}</button>)}</div>
         {active === "Overview" && <ExecutiveCenter setActive={setActive}/>} 
         {active === "Strategy" && <StrategyView selectedTheme={selectedTheme} setSelectedTheme={setSelectedTheme} onRun={() => runAgent("Strategy Agent", `Strategy Agent approved “${selectedTheme}” against 6 objectives`)}/>} 
-        {active === "Speakers" && <SpeakersView filter={speakerFilter} setFilter={setSpeakerFilter} onRun={() => runAgent("Talent Scout", "Talent Scout added 18 candidates across 7 markets")}/>} 
-        {active === "Content" && <ContentView count={sessionCount} onRun={() => { setSessionCount(value => value + 1); runAgent("Content Curator", "Content Curator drafted “From Evidence to Adoption” session"); }}/>} 
+        {active === "Speakers" && <SpeakersView speakers={speakerRecords} filter={speakerFilter} setFilter={setSpeakerFilter} onStageChange={(name, stage) => { setSpeakerRecords(current => current.map(speaker => speaker.name === name ? { ...speaker, stage } : speaker)); setLogs(current => [`Speaker Lead moved ${name} to ${stage}`, ...current].slice(0, 5)); }} onRun={() => runAgent("Talent Scout", "Talent Scout added 18 candidates across 7 markets")}/>} 
+        {active === "Content" && <ContentView count={sessionCount} speakers={speakerRecords} topics={sessionTopics} setTopics={setSessionTopics} onRun={() => { setSessionCount(value => value + 1); runAgent("Content Curator", "Content Curator drafted “From Evidence to Adoption” session"); }}/>} 
         {!(["Overview", "Strategy", "Speakers", "Content"] as Stage[]).includes(active) && <ModuleProfile active={active}/>} 
       </main>
     </div>
@@ -88,13 +146,26 @@ function StrategyView({ selectedTheme, setSelectedTheme, onRun }: { selectedThem
   return <><PageHead eyebrow="Stage 01 · Strategy" title="Define the summit’s strategic spine." copy="Turn audience signals, WISE values, and market context into a defensible theme." action="Run Strategy Agent" onAction={onRun}/><div className="agent-map"><div className="agent-node central"><Bot size={21}/><b>Strategy Agent</b><small>Orchestrating synthesis</small></div>{[["Audience Research", "12 signals"],["WISE Archive", "5 summits"],["Market Lens", "8 trends"],["Impact Model", "6 outcomes"]].map(([name,note], index) => <div className={`agent-node node-${index}`} key={name}><Sparkles size={16}/><b>{name}</b><small>{note}</small></div>)}</div><section className="strategy-grid"><article className="proto-panel"><PanelTitle eyebrow="Theme candidates" title="Select the narrative direction"/><div className="theme-list">{themes.map((theme,index) => <button className={selectedTheme === theme ? "selected" : ""} key={theme} onClick={() => setSelectedTheme(theme)}><span>{String(index+1).padStart(2,"0")}</span><div><b>{theme}</b><small>{index === 0 ? "Innovation · evidence · global impact" : "Agent-generated strategic territory"}</small></div>{selectedTheme === theme && <Check size={17}/>}</button>)}</div></article><article className="proto-panel rationale"><PanelTitle eyebrow="Agent rationale" title={selectedTheme}/><blockquote>“WISE advances evidence-driven solutions that strengthen learning systems, expand opportunity, and create practical pathways to adoption.”</blockquote><label>Strategic fit <b>96%</b></label><label>Audience resonance <b>91%</b></label><label>Content extensibility <b>88%</b></label><button onClick={onRun}><Check size={16}/> Approve strategic direction</button></article></section></>;
 }
 
-function SpeakersView({ filter, setFilter, onRun }: { filter: string; setFilter: (value:string)=>void; onRun:()=>void }) {
-  const stages = ["Identified","Invited","Accepted","Confirmed","Travel Planned","Ready"];
-  return <><PageHead eyebrow="Stage 02 · Global speakers" title="Build the voices behind the theme." copy="Discover, score, engage, confirm, and prepare speakers with agent-supported handoffs." action="Run global discovery" onAction={onRun}/><div className="speaker-toolbar"><div>{["All","MENA","Africa","Asia Pacific"].map(region => <button className={filter===region?"active":""} key={region} onClick={()=>setFilter(region)}>{region}</button>)}</div><span><Globe2 size={15}/> 7 markets · 24 candidates</span></div><section className="speaker-pipeline">{stages.map(stage => { const matches=speakers.filter(speaker => speaker.stage===stage && (filter==="All"||speaker.region===filter)); return <div className="pipeline-column" key={stage}><header><b>{stage}</b><span>{matches.length}</span></header>{matches.map(speaker => <article key={speaker.name}><div><span>{speaker.name.split(" ").map(part=>part[0]).join("")}</span><em>{speaker.score}% fit</em></div><b>{speaker.name}</b><p>{speaker.role}</p><small>{speaker.region}</small><footer><i className={stage==="Ready"?"ready":""}/>{stage==="Identified"?"Agent ranked":"Human reviewed"}</footer></article>)}</div>;})}</section></>;
+function SpeakersView({ speakers, filter, setFilter, onStageChange, onRun }: { speakers: SpeakerRecord[]; filter: string; setFilter: (value:string)=>void; onStageChange:(name:string,stage:SpeakerStage)=>void; onRun:()=>void }) {
+  return <><PageHead eyebrow="Stage 02 · Global speakers" title="Build the voices behind the theme." copy="Discover, score, engage, confirm, and prepare speakers with agent-supported handoffs." action="Run global discovery" onAction={onRun}/><div className="speaker-toolbar"><div>{["All","MENA","Africa","Asia Pacific"].map(region => <button className={filter===region?"active":""} key={region} onClick={()=>setFilter(region)}>{region}</button>)}</div><span><Globe2 size={15}/> 7 markets · 24 candidates</span></div><div className="response-guidance"><MessageSquareText size={16}/><p><b>Track invitation responses here.</b> Move each candidate through the pipeline as replies, confirmations, and travel details arrive.</p></div><section className="speaker-pipeline">{speakerStages.map(stage => { const matches=speakers.filter(speaker => speaker.stage===stage && (filter==="All"||speaker.region===filter)); return <div className="pipeline-column" key={stage}><header><b>{stage}</b><span>{matches.length}</span></header>{matches.map(speaker => <article key={speaker.name}><div><span>{speaker.name.split(" ").map(part=>part[0]).join("")}</span><em>{speaker.score}% fit</em></div><b>{speaker.name}</b><p>{speaker.role}</p><small>{speaker.region}</small><label className="response-select"><span>Response status</span><select aria-label={`Response status for ${speaker.name}`} value={speaker.stage} onChange={event=>onStageChange(speaker.name,event.target.value as SpeakerStage)}>{speakerStages.map(option=><option key={option}>{option}</option>)}</select></label><footer><i className={stage==="Ready"?"ready":""}/>{stage==="Identified"?"Agent ranked":"Human reviewed"}</footer></article>)}</div>;})}</section></>;
 }
 
-function ContentView({ count, onRun }: { count:number; onRun:()=>void }) {
-  return <><PageHead eyebrow="Stage 03 · Content curation" title="Shape ideas into a coherent summit." copy="Translate strategy and speaker expertise into sessions, tracks, and measurable audience outcomes." action="Generate session" onAction={onRun}/><section className="content-stats"><article><small>Sessions defined</small><strong>{count}/20</strong></article><article><small>Speakers assigned</small><strong>11/18</strong></article><article><small>Learning outcomes</small><strong>86%</strong></article><article><small>Editorial ready</small><strong>9</strong></article></section><section className="agenda-layout"><article className="proto-panel agenda"><PanelTitle eyebrow="Agenda builder" title="Summit day architecture"/>{sessions.map(session => <div className="session-row" key={session.title}><time>{session.time}</time><span className={`track ${session.track.toLowerCase().replace(" ","-")}`}/><div><b>{session.title}</b><small>{session.track} · {session.owner}</small></div><em>{session.readiness}%</em><button aria-label={`Open ${session.title}`}><ArrowRight size={15}/></button></div>)}{count>4&&<div className="session-row generated"><time>13:30</time><span className="track venture"/><div><b>From Evidence to Adoption</b><small>Policy · Content Curator</small></div><em>Draft</em><button><ArrowRight size={15}/></button></div>}</article><article className="proto-panel curator-panel"><PanelTitle eyebrow="Curation intelligence" title="Coverage against strategy"/>{[["Evidence to adoption",88],["Policy & coalitions",74],["Innovation at scale",92],["Equity & opportunity",81]].map(([label,value]) => <div className="coverage" key={label as string}><span><b>{label}</b><em>{value}%</em></span><i><u style={{width:`${value}%`}}/></i></div>)}<div className="agent-recommendation"><Sparkles size={18}/><p><b>Content gap detected</b>Add one session connecting evidence, policy, and practical adoption.</p><button onClick={onRun}>Apply recommendation</button></div></article></section></>;
+function ContentView({ count, speakers, topics, setTopics, onRun }: { count:number; speakers:SpeakerRecord[]; topics:SessionTopic[]; setTopics:React.Dispatch<React.SetStateAction<SessionTopic[]>>; onRun:()=>void }) {
+  const [selectedSession, setSelectedSession] = useState<ProgrammeSession | null>(null);
+  const [topicTitle, setTopicTitle] = useState("");
+  const [track, setTrack] = useState("Policy");
+  const [selectedTopicId, setSelectedTopicId] = useState("");
+  const [selectedSpeaker, setSelectedSpeaker] = useState("");
+  const [selectedTime, setSelectedTime] = useState("");
+  const [selectedLocation, setSelectedLocation] = useState("");
+  const generatedSession: ProgrammeSession = { title: "From Evidence to Adoption", track: "Policy", owner: "Content Curator", status: "Draft generated" };
+  const eligibleSpeakers = speakers.filter(speaker => ["Accepted","Confirmed","Travel Planned","Ready"].includes(speaker.stage));
+  const slotTimes = programmeRows.filter(row=>row.type==="slot").map(row=>row.time);
+  const activeTopic = topics.find(topic=>topic.id===selectedTopicId);
+  const addTopic = () => { if (!topicTitle.trim()) return; const topic={id:`topic-${Date.now()}`,title:topicTitle.trim(),track}; setTopics(current=>[...current,topic]); setSelectedTopicId(topic.id); setTopicTitle(""); };
+  const assignSpeaker = () => { if (!selectedTopicId||!selectedSpeaker) return; setTopics(current=>current.map(topic=>topic.id===selectedTopicId?{...topic,speaker:selectedSpeaker}:topic)); };
+  const placeSession = () => { if (!selectedTopicId||!selectedTime||!selectedLocation||!activeTopic?.speaker) return; setTopics(current=>current.map(topic=>topic.id===selectedTopicId?{...topic,time:selectedTime,location:selectedLocation}:topic)); };
+  return <><PageHead eyebrow="Stage 03 · Content curation" title="Shape ideas into a coherent summit." copy="Translate strategy and speaker expertise into sessions, tracks, and measurable audience outcomes." action="Generate session" onAction={onRun}/><section className="content-stats"><article><small>Sessions defined</small><strong>{count+topics.length}/20</strong></article><article><small>Speakers assigned</small><strong>{topics.filter(topic=>topic.speaker).length+11}/18</strong></article><article><small>Learning outcomes</small><strong>86%</strong></article><article><small>Scheduled topics</small><strong>{topics.filter(topic=>topic.time).length}</strong></article></section><section className="session-workflow"><div className="workflow-heading"><span>Session workflow</span><h2>Topic to timetable</h2><p>Complete each step in order. Accepted speakers become available for assignment.</p></div><div className="workflow-steps"><fieldset><legend><span>1</span>Create topic</legend><label>Session topic<input value={topicTitle} onChange={event=>setTopicTitle(event.target.value)} placeholder="e.g. Learning beyond the classroom"/></label><label>Track<select value={track} onChange={event=>setTrack(event.target.value)}>{["Policy","Innovation","Global outlook","Roundtable","Workshop","Partner session"].map(option=><option key={option}>{option}</option>)}</select></label><button onClick={addTopic} disabled={!topicTitle.trim()}>Add topic</button></fieldset><fieldset><legend><span>2</span>Choose topic</legend><label>Draft topic<select value={selectedTopicId} onChange={event=>{setSelectedTopicId(event.target.value);setSelectedSpeaker("");}}><option value="">Select a topic</option>{topics.map(topic=><option value={topic.id} key={topic.id}>{topic.title}</option>)}</select></label><div className="step-status">{activeTopic?<><b>{activeTopic.track}</b><span>{activeTopic.speaker?`Assigned to ${activeTopic.speaker}`:"Awaiting speaker"}</span></>:<span>Create or select a topic to continue</span>}</div></fieldset><fieldset><legend><span>3</span>Assign speaker</legend><label>Accepted speaker<select value={selectedSpeaker} onChange={event=>setSelectedSpeaker(event.target.value)} disabled={!selectedTopicId}><option value="">Select a speaker</option>{eligibleSpeakers.map(speaker=><option value={speaker.name} key={speaker.name}>{speaker.name} · {speaker.stage}</option>)}</select></label><button onClick={assignSpeaker} disabled={!selectedTopicId||!selectedSpeaker}>Assign speaker</button><small>{eligibleSpeakers.length} speakers currently eligible</small></fieldset><fieldset><legend><span>4</span>Place in programme</legend><label>Time slot<select value={selectedTime} onChange={event=>setSelectedTime(event.target.value)} disabled={!activeTopic?.speaker}><option value="">Select time</option>{slotTimes.map(time=><option key={time}>{time}</option>)}</select></label><label>Room<select value={selectedLocation} onChange={event=>setSelectedLocation(event.target.value)} disabled={!activeTopic?.speaker}><option value="">Select room</option>{programmeLocations.map(location=><option key={location}>{location}</option>)}</select></label><button onClick={placeSession} disabled={!activeTopic?.speaker||!selectedTime||!selectedLocation}>Add to timetable</button></fieldset></div></section><section className="programme-section"><div className="programme-heading"><div><span>Summit programme</span><h2>Day 1 · Tuesday, 3 November</h2><p>All times shown in Arabia Standard Time · Doha</p></div><div className="programme-key"><span><i className="key-plenary"/>Plenary</span><span><i className="key-session"/>Session</span><span><i className="key-workshop"/>Workshop</span></div></div><div className="programme-scroll"><div className="programme-grid programme-locations"><div className="programme-time-head"><Clock3 size={14}/> Time</div>{programmeLocations.map(location=><div key={location}>{location}</div>)}</div>{programmeRows.map((row,rowIndex)=><div className={`programme-grid programme-row ${row.type}`} key={`${row.label}-${row.time}`}><div className="programme-time"><b>{row.label}</b><span>{row.time}</span></div>{row.type==="break"?<div className="programme-break"><span>{row.label}</span><i/></div>:row.type==="plenary"?<button className="programme-plenary" onClick={()=>setSelectedSession(row.sessions![0])}><span>{row.sessions![0].track}</span><b>{row.sessions![0].title}</b><small>{row.sessions![0].status}</small></button>:row.sessions!.map((session,index)=>{const assignedTopic=topics.find(topic=>topic.time===row.time&&topic.location===programmeLocations[index]);const visibleSession:ProgrammeSession=assignedTopic?{title:assignedTopic.title,track:assignedTopic.track,owner:assignedTopic.speaker!,status:"Scheduled"}:count>4&&rowIndex===9&&index===5?generatedSession:session;return <button className={`programme-session track-${visibleSession.track.toLowerCase().replaceAll(" ","-")}`} key={`${row.time}-${index}`} onClick={()=>setSelectedSession(visibleSession)} aria-expanded={selectedSession?.title===visibleSession.title}><span>{visibleSession.track}</span><b>{visibleSession.title}</b><small>{visibleSession.status}</small></button>})}</div>)}</div></section>{selectedSession&&<aside className="session-brief" aria-live="polite"><div><span>Session brief</span><h2>{selectedSession.title}</h2></div><button aria-label="Close session brief" onClick={()=>setSelectedSession(null)}><X size={18}/></button><dl><div><dt>Format</dt><dd>{selectedSession.track}</dd></div><div><dt>Owner / speaker</dt><dd>{selectedSession.owner}</dd></div><div><dt>Status</dt><dd>{selectedSession.status}</dd></div><div><dt>Outcome</dt><dd>Connect evidence and participant insight to a practical next action.</dd></div></dl><button className="brief-action">Open full brief <ArrowRight size={15}/></button></aside>}<section className="schedule-insights"><article className="proto-panel curator-panel"><PanelTitle eyebrow="Curation intelligence" title="Coverage against strategy"/><div className="coverage-grid">{[["Evidence to adoption",88],["Policy & coalitions",74],["Innovation at scale",92],["Equity & opportunity",81]].map(([label,value]) => <div className="coverage" key={label as string}><span><b>{label}</b><em>{value}%</em></span><i><u style={{width:`${value}%`}}/></i></div>)}</div><div className="agent-recommendation"><Sparkles size={18}/><p><b>Content gap detected</b>Add one session connecting evidence, policy, and practical adoption.</p><button onClick={onRun}>Apply recommendation</button></div></article></section></>;
 }
 
 function ModuleProfile({ active }: { active: Stage }) {

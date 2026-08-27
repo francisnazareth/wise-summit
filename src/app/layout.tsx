@@ -3,6 +3,7 @@ import { DM_Sans, Fraunces } from "next/font/google";
 import "./globals.css";
 import "./dashboard.css";
 import "./workflow.css";
+import "./schedule.css";
 
 const dmSans = DM_Sans({
   variable: "--font-sans",
