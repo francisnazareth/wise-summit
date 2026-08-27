@@ -2,20 +2,21 @@
 
 import { useState } from "react";
 import {
-  Activity, AlertTriangle, ArrowRight, Bot, CalendarDays, Check, ChevronDown,
+  Activity, AlertTriangle, ArrowLeft, ArrowRight, Bot, CalendarDays, Check, ChevronDown,
   CircleDollarSign, Clock3, FileBarChart, Globe2, LayoutDashboard, ListChecks,
-  LogIn, LogOut, Menu, MessageSquareText, Network, Play, Search, ShieldAlert, Sparkles,
+  LogIn, LogOut, Menu, MessageSquareText, Network, Play, Plus, Search, ShieldAlert, Sparkles,
   Target, Users, WandSparkles, X,
 } from "lucide-react";
 
-type Stage = "Overview" | "Strategy" | "Speakers" | "Content" | "Stakeholders" | "Planning" | "Budget" | "Risks" | "Approvals" | "Live Ops" | "Reports";
+type Stage = "Overview" | "Programs" | "Strategy" | "Speakers" | "Content" | "Stakeholders" | "Planning" | "Budget" | "Risks" | "Approvals" | "Live Ops" | "Reports";
 type AgentStatus = "complete" | "running" | "queued" | "idle";
 type SpeakerStage = "Identified" | "Invited" | "Accepted" | "Confirmed" | "Travel Planned" | "Ready";
 type SpeakerRecord = { name: string; role: string; region: string; stage: SpeakerStage; score: number };
 type SessionTopic = { id: string; title: string; track: string; speaker?: string; time?: string; location?: string };
+type ProgramRecord = { name: string; theme: string; location: string; attendees: string; speakers: string; budget: string; narrative: string; status: "Active" | "Planning" };
 
 const nav: Array<[Stage, typeof Activity]> = [
-  ["Overview", LayoutDashboard], ["Strategy", Target], ["Speakers", Users], ["Content", MessageSquareText],
+  ["Overview", LayoutDashboard], ["Programs", CalendarDays], ["Strategy", Target], ["Speakers", Users], ["Content", MessageSquareText],
   ["Stakeholders", Network], ["Planning", CalendarDays], ["Budget", CircleDollarSign], ["Risks", ShieldAlert],
   ["Approvals", ListChecks], ["Live Ops", Activity], ["Reports", FileBarChart],
 ];
@@ -95,6 +96,7 @@ const programmeRows: ProgrammeRow[] = [
   { label: "Plenary", time: "16:20–17:00", type: "plenary", sessions: [{ title: "Closing Plenary: Commitments for 2027", track: "Plenary", owner: "Strategy Agent", status: "Editorial review" }] },
 ];
 const profiles = ["Executive Director", "Strategy Lead", "Speaker Lead", "Content Curator", "Operations Lead"];
+const initialPrograms: ProgramRecord[] = [{ name: "WISE Summit 2027", theme: "Innovating Education for a Changing World", location: "Doha", attendees: "3,000", speakers: "150", budget: "$5M", narrative: "A global operating environment for summit strategy, content, and delivery.", status: "Active" }];
 
 export function WisePrototype() {
   const [loggedIn, setLoggedIn] = useState(false);
@@ -111,6 +113,7 @@ export function WisePrototype() {
   const [sessionCount, setSessionCount] = useState(4);
   const [speakerRecords, setSpeakerRecords] = useState(speakers);
   const [sessionTopics, setSessionTopics] = useState<SessionTopic[]>([]);
+  const [programs, setPrograms] = useState(initialPrograms);
 
   const runAgent = (name: string, result: string) => {
     setAgents(current => current.map(agent => agent.name === name ? { ...agent, status: "complete" } : agent));
@@ -145,10 +148,11 @@ export function WisePrototype() {
       <main className="proto-content">
         <div className="process-rail">{["Strategy", "Speakers", "Content", "Planning", "Execution"].map((step, index) => <button key={step} className={active === step || (active === "Overview" && index === 0) ? "current" : index < 1 ? "done" : ""} onClick={() => index < 3 && setActive(step as Stage)}><span>{index < 1 ? <Check size={13}/> : index + 1}</span><b>{step}</b>{index < 4 && <i/>}</button>)}</div>
         {active === "Overview" && <ExecutiveCenter setActive={setActive}/>} 
+        {active === "Programs" && <ProgramsView programs={programs} onCreate={program => { setPrograms(current => [...current.filter(item => item.name !== program.name), program]); setLogs(current => [`Program Agent created ${program.name} operating environment`, ...current].slice(0, 5)); }}/>} 
         {active === "Strategy" && <StrategyView selectedTheme={selectedTheme} setSelectedTheme={setSelectedTheme} onRun={() => runAgent("Strategy Agent", `Strategy Agent approved “${selectedTheme}” against 6 objectives`)}/>} 
         {active === "Speakers" && <SpeakersView speakers={speakerRecords} filter={speakerFilter} setFilter={setSpeakerFilter} onStageChange={(name, stage) => { setSpeakerRecords(current => current.map(speaker => speaker.name === name ? { ...speaker, stage } : speaker)); setLogs(current => [`Speaker Lead moved ${name} to ${stage}`, ...current].slice(0, 5)); }} onRun={() => runAgent("Talent Scout", "Talent Scout added 18 candidates across 7 markets")}/>} 
         {active === "Content" && <ContentView count={sessionCount} speakers={speakerRecords} topics={sessionTopics} setTopics={setSessionTopics} onRun={() => { setSessionCount(value => value + 1); runAgent("Content Curator", "Content Curator drafted “From Evidence to Adoption” session"); }}/>} 
-        {!(["Overview", "Strategy", "Speakers", "Content"] as Stage[]).includes(active) && <ModuleProfile active={active}/>} 
+        {!(["Overview", "Programs", "Strategy", "Speakers", "Content"] as Stage[]).includes(active) && <ModuleProfile active={active}/>} 
       </main>
     </div>
     <AgentRail agents={agents} logs={logs}/>
@@ -159,6 +163,18 @@ export function WisePrototype() {
 function ExecutiveCenter({ setActive }: { setActive: (stage: Stage) => void }) {
   const kpis = [["Summit Health Score", "82%", "+6% this week"], ["Days to Event", "231", "15 Apr 2027 · Doha"], ["Budget", "$270k", "68% committed"], ["Sponsors", "8", "2 pending assets"], ["Speakers", "11/18", "4 in outreach"], ["Risks", "6", "2 high impact"]];
     return <><section className="executive-hero"><div><span>Executive command center</span><h1>WISE Summit 2027<br/>Command Center</h1><p>Live readiness across strategy, global education leaders, content, and summit operations.</p></div><small>WISE Innovation · Building the future of education</small></section><div className="exec-alert"><span/><b>Overall summit health: Strong</b><p>Three agent interventions are running across the critical path.</p><button onClick={() => setActive("Live Ops")}>Open live operations <ArrowRight size={14}/></button></div><section className="exec-kpis">{kpis.map(([label,value,note], index) => <article key={label}><span className={`metric-signal signal-${index}`}/><small>{label}</small><strong>{value}</strong><p>{note}</p></article>)}</section><section className="exec-grid"><article className="proto-panel timeline-panel"><PanelTitle eyebrow="Readiness against timeline" title="Summit critical path"/><div className="timeline-bars">{[["Strategy & theme",94],["Global speakers",72],["Content & sessions",68],["Production & venue",81],["Audience & partners",76]].map(([label,value]) => <div key={label as string}><span><b>{label}</b><em>{value}%</em></span><i><u style={{width:`${value}%`}}/></i></div>)}</div></article><article className="proto-panel stage-panel"><PanelTitle eyebrow="First three stages" title="Action center"/>{[["Strategy", "Theme approved", "94%"],["Speakers", "7 need action", "72%"],["Content", "6 slots open", "68%"]].map(([stage,note,value], index) => <button key={stage} onClick={() => setActive(stage as Stage)}><span>{index+1}</span><div><b>{stage}</b><small>{note}</small></div><strong>{value}</strong><ArrowRight size={16}/></button>)}</article></section></>;
+}
+
+function ProgramsView({ programs, onCreate }: { programs: ProgramRecord[]; onCreate: (program: ProgramRecord) => void }) {
+  const [creating, setCreating] = useState(false);
+  const [createdName, setCreatedName] = useState("");
+  const [draft, setDraft] = useState<ProgramRecord>({ name: "WISE Summit 2028", theme: "AI for Sustainable Development", location: "Doha", attendees: "3,000", speakers: "150", budget: "$5M", narrative: "Instead of spending weeks preparing concept notes and planning documents, the system creates a structured operating environment immediately.", status: "Planning" });
+  const update = (field: keyof ProgramRecord, value: string) => setDraft(current => ({ ...current, [field]: value }));
+  const submit = (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); onCreate(draft); setCreatedName(draft.name); setCreating(false); };
+
+  if (creating) return <><div className="program-breadcrumb"><button onClick={()=>setCreating(false)}><ArrowLeft size={14}/>Programs</button><span>/</span><b>Create Program</b></div><section className="program-create"><header><span>Create a new summit · 2 mins</span><h1>Build the operating environment.</h1><p>Define the core brief once. The workspace, workstreams, and planning structure are created immediately.</p></header><form onSubmit={submit}><div className="program-fields"><label className="field-wide">Program name<input required value={draft.name} onChange={event=>update("name",event.target.value)}/></label><label className="field-wide">Theme<input required value={draft.theme} onChange={event=>update("theme",event.target.value)}/></label><label>Location<input required value={draft.location} onChange={event=>update("location",event.target.value)}/></label><label>Attendees<input required value={draft.attendees} onChange={event=>update("attendees",event.target.value)}/></label><label>Speakers<input required value={draft.speakers} onChange={event=>update("speakers",event.target.value)}/></label><label>Budget<input required value={draft.budget} onChange={event=>update("budget",event.target.value)}/></label><label className="field-wide">Narrative<textarea required rows={4} value={draft.narrative} onChange={event=>update("narrative",event.target.value)}/></label></div><aside className="program-preview"><span>Operating brief</span><h2>{draft.name}</h2><p>{draft.theme}</p><dl><div><dt>Location</dt><dd>{draft.location}</dd></div><div><dt>Audience</dt><dd>{draft.attendees}</dd></div><div><dt>Speakers</dt><dd>{draft.speakers}</dd></div><div><dt>Budget</dt><dd>{draft.budget}</dd></div></dl><blockquote>“{draft.narrative}”</blockquote><button type="submit"><Sparkles size={16}/>Create Program</button></aside></form></section></>;
+
+  return <><div className="programs-heading"><div><span>Program portfolio</span><h1>Summits and operating environments</h1><p>Create and manage each summit from one shared command center.</p></div><button onClick={()=>setCreating(true)}><Plus size={16}/>Create Program</button></div>{createdName&&<div className="program-success"><Check size={16}/><p><b>{createdName} is ready.</b>Strategy, speakers, content, planning, budget, and risk workspaces were created.</p></div>}<section className="program-list">{programs.map(program=><article key={program.name}><header><span>{program.status}</span><CalendarDays size={18}/></header><h2>{program.name}</h2><p>{program.theme}</p><dl><div><dt>Location</dt><dd>{program.location}</dd></div><div><dt>Attendees</dt><dd>{program.attendees}</dd></div><div><dt>Speakers</dt><dd>{program.speakers}</dd></div><div><dt>Budget</dt><dd>{program.budget}</dd></div></dl><footer><small>{program.narrative}</small><button aria-label={`Open ${program.name}`}><ArrowRight size={16}/></button></footer></article>)}</section></>;
 }
 
 function StrategyView({ selectedTheme, setSelectedTheme, onRun }: { selectedTheme: string; setSelectedTheme: (theme: string) => void; onRun: () => void }) {
