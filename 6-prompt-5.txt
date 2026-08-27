@@ -1,0 +1,31 @@
+Build a Gantt-style planning timeline.
+
+Phases:
+
+Phase 1
+Initial Planning
+
+Phase 2
+Content & Stakeholders
+
+Phase 3
+Launch & Promotion
+
+Phase 4
+Program & Logistics
+
+Phase 5
+Planning & Operations
+
+Phase 6
+Execution
+
+Phase 7
+Post Event
+
+Display milestones along a horizontal roadmap.
+
+Allow zoom:
+- Month
+- Quarter
+- Year

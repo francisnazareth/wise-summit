@@ -1,0 +1,29 @@
+Build an Operations Command Center.
+
+Layout:
+
+Left:
+Active Issues
+
+Center:
+Live Program Status
+
+Right:
+Alerts and Notifications
+
+Bottom:
+Timeline of Events
+
+Components:
+
+Traffic Light Status
+
+Live Metrics
+
+Critical Issues
+
+Escalations
+
+Recent Updates
+
+Executive Summary Panel

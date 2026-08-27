@@ -1,0 +1,23 @@
+Build a drag and drop agenda builder.
+
+Display:
+
+Time slots vertically
+
+Tracks horizontally
+
+Allow:
+
+Add Session
+
+Move Session
+
+Assign Speaker
+
+Assign Room
+
+Assign Moderator
+
+Color-code tracks.
+
+Resemble enterprise event planning software.

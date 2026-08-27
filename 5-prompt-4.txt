@@ -1,0 +1,23 @@
+Build a Program Workspace page.
+
+Sections:
+
+Overview
+
+Timeline
+
+Tasks
+
+Stakeholders
+
+Budget
+
+Risks
+
+Approvals
+
+Reports
+
+The workspace should serve as the command center for a single program.
+
+Include status indicators and progress tracking.

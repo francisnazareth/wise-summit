@@ -1,0 +1,42 @@
+Create the full screen architecture for the Operations Planning Platform.
+
+Navigation:
+
+Dashboard
+
+Programs
+- All Programs
+- Program Workspace
+- Timeline
+
+Stakeholders
+- VIPs
+- Speakers
+- Partners
+- Sponsors
+
+Program Design
+- Themes
+- Agenda Builder
+- Session Designer
+
+Planning
+- Tasks
+- Milestones
+- Deliverables
+
+Budget
+
+Risks
+
+Approvals
+
+Communications
+
+Operations Command Center
+
+Reports
+
+Settings
+
+Generate routes, layouts, navigation and placeholder pages.

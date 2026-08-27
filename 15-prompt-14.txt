@@ -1,0 +1,17 @@
+Create an AI Assistant side panel.
+
+Capabilities:
+
+Generate Program Plan
+
+Generate Timeline
+
+Generate Risk Register
+
+Generate Agenda
+
+Generate Speaker Recommendations
+
+Generate Executive Summary
+
+Use conversational UI similar to ChatGPT.

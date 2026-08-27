@@ -1,0 +1,27 @@
+Build a modern web application called "Operations Planning Platform".
+
+Tech Stack:
+- Next.js 15
+- React
+- TypeScript
+- Tailwind CSS
+- shadcn/ui
+- lucide-react icons
+- Zustand for state
+- Recharts for dashboards
+
+Requirements:
+- No backend required
+- Use mock JSON data
+- Fully responsive
+- Professional enterprise design
+- Dark/light mode
+- Left navigation menu
+- Top command bar
+- Modern dashboard
+
+The application manages the lifecycle of large programs from planning through execution and reporting.
+
+Generate all screens, routes, dummy data, navigation, layouts and components.
+
+Focus on UX and visual design over backend functionality.

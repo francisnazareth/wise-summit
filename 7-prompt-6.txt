@@ -1,0 +1,39 @@
+Build a CRM-style stakeholder management module.
+
+Entity types:
+
+VIP
+Speaker
+Partner
+Sponsor
+Delegate
+
+Columns:
+
+Name
+
+Organization
+
+Country
+
+Category
+
+Status
+
+Owner
+
+Actions
+
+Include:
+
+Search
+
+Filters
+
+Cards View
+
+Table View
+
+Stakeholder Detail Page
+
+Relationship Map

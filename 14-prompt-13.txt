@@ -1,0 +1,17 @@
+Create a reporting section.
+
+Reports:
+
+Executive Report
+
+Budget Report
+
+Stakeholder Report
+
+Sponsor Report
+
+Risk Report
+
+Attendance Report
+
+Include export buttons and modern analytics visuals.

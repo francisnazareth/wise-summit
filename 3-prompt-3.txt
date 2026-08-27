@@ -1,0 +1,35 @@
+Create a world-class executive dashboard.
+
+Widgets:
+
+Days to Event
+
+Program Health Score
+
+Budget Utilization
+
+Registrations
+
+Speakers Confirmed
+
+Sponsors Confirmed
+
+Open Risks
+
+Pending Approvals
+
+Charts:
+
+Budget Trend
+
+Registration Trend
+
+Speaker Pipeline
+
+Risk Distribution
+
+Recent Activities Feed
+
+Upcoming Milestones
+
+Use beautiful KPI cards and charts.

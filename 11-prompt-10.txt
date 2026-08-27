@@ -1,0 +1,29 @@
+Build a risk management module.
+
+Columns:
+
+Risk ID
+
+Risk Title
+
+Category
+
+Probability
+
+Impact
+
+Score
+
+Owner
+
+Status
+
+Views:
+
+Table
+
+Matrix
+
+Heatmap
+
+Include risk cards.

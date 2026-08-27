@@ -1,0 +1,29 @@
+Build a multi-step Program Creation Wizard.
+
+Step 1:
+Basic Information
+- Program Name
+- Theme
+- Description
+- Location
+- Dates
+
+Step 2:
+Objectives
+- Strategic Objectives
+- Expected Outcomes
+- Target Audience
+
+Step 3:
+Scale
+- Expected Attendees
+- Speakers
+- Sponsors
+- Budget
+
+Step 4:
+Generated Summary
+
+Display progress indicators.
+
+Modern stepper UI.

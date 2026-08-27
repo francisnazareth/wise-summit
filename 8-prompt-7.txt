@@ -1,0 +1,25 @@
+Build a speaker management portal.
+
+Pipeline:
+
+Identified
+Invited
+Accepted
+Confirmed
+Travel Planned
+Ready
+
+Display:
+
+Kanban Board
+
+Speaker Profile
+
+Session Assignments
+
+Travel Status
+
+Editorial Status
+
+Speaker Briefing Center
+``

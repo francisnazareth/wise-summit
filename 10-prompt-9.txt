@@ -1,0 +1,31 @@
+Create a financial planning dashboard.
+
+Categories:
+
+Venue
+
+Marketing
+
+Travel
+
+Accommodation
+
+Technology
+
+Production
+
+Operations
+
+Contingency
+
+Visuals:
+
+Budget vs Actual
+
+Cost Distribution
+
+Forecast
+
+Variance Analysis
+
+Show warning indicators.

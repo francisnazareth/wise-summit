@@ -1,0 +1,25 @@
+Create an approval workflow dashboard.
+
+Approval Types:
+
+Budget Approval
+
+Speaker Approval
+
+Sponsor Approval
+
+Venue Approval
+
+Communications Approval
+
+Display:
+
+Workflow Diagram
+
+Pending Approvals
+
+Approval History
+
+Approver Timeline
+
+Status Tracking
