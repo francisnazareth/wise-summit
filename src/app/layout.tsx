@@ -5,6 +5,7 @@ import "./dashboard.css";
 import "./workflow.css";
 import "./schedule.css";
 import "./home-hero.css";
+import "./auth.css";
 
 const dmSans = DM_Sans({
   variable: "--font-sans",
@@ -17,8 +18,8 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "WISE Ops | Summit 2026",
-  description: "Operations command center for WISE Summit 2026.",
+  title: "WISE Ops | Summit 2027",
+  description: "Operations command center for WISE Summit 2027.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
