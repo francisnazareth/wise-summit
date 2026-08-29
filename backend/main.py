@@ -1,3 +1,4 @@
+import logging
 import os
 from functools import lru_cache
 from typing import Annotated, Protocol
@@ -7,6 +8,9 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from openai import AzureOpenAI, OpenAIError
 from pydantic import BaseModel, Field, field_validator
+
+
+logger = logging.getLogger(__name__)
 
 
 class ChatRequest(BaseModel):
@@ -87,6 +91,7 @@ def chat(
             max_tokens=800,
         )
     except (OpenAIError, OSError):
+        logger.exception("Foundry model invocation failed")
         raise HTTPException(status_code=502, detail="Model invocation failed") from None
 
     content = completion.choices[0].message.content
