@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from typing import Annotated, Literal, Protocol
 
@@ -142,21 +143,56 @@ def discover_speakers(
     if not deployment:
         raise HTTPException(status_code=503, detail="Model deployment is not configured")
 
-    prompt = f"""Perform a public web search for potential speakers for WISE Summit 2027 in Doha.
-The approved strategic theme is: {request.theme}
-Return JSON only with a candidates array containing exactly 100 real, living global education, policy, technology, research, social-impact, or philanthropy leaders: exactly 30 USA, 20 Europe, 20 Africa, and 30 Asia. Do not include people whose primary base is outside their assigned region. Each candidate must have name, current role and organization in role, region (exactly USA, Europe, Africa, or Asia), fit score from 0 to 100, and source_url from the web search supporting their current role. Use snake_case source_url. Do not include markdown."""
+    quotas = {"USA": 30, "Europe": 20, "Africa": 20, "Asia": 30}
 
-    try:
+    def search_region(region: str, count: int) -> list[SpeakerCandidate]:
+        prompt = f"""Perform a public web search for exactly {count} potential speakers primarily based in {region} for WISE Summit 2027 in Doha.
+The approved strategic theme is: {request.theme}
+Find real, living education, policy, technology, research, social-impact, or philanthropy leaders. Return current information only. Each source_url must come from the web search and support the person's current role. Do not assign anyone whose primary base is outside {region}."""
+        schema = {
+            "type": "object",
+            "properties": {
+                "candidates": {
+                    "type": "array",
+                    "minItems": count,
+                    "maxItems": count,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "role": {"type": "string"},
+                            "region": {"type": "string", "enum": [region]},
+                            "score": {"type": "integer", "minimum": 0, "maximum": 100},
+                            "source_url": {"type": "string"},
+                        },
+                        "required": ["name", "role", "region", "score", "source_url"],
+                        "additionalProperties": False,
+                    },
+                }
+            },
+            "required": ["candidates"],
+            "additionalProperties": False,
+        }
         response = client.responses.create(
             model=deployment,
             tools=[{"type": "web_search"}],
             input=prompt,
-            max_output_tokens=12_000,
+            text={"format": {"type": "json_schema", "name": "speaker_candidates", "strict": True, "schema": schema}},
+            max_output_tokens=5_000,
         )
         if not any(item.type == "web_search_call" for item in response.output):
-            raise ValueError("The model did not perform a web search")
+            raise ValueError(f"The model did not perform a web search for {region}")
         payload = json.loads(response.output_text)
-        return SpeakerDiscoveryResponse.model_validate(payload)
+        candidates = [SpeakerCandidate.model_validate(candidate) for candidate in payload["candidates"]]
+        if len(candidates) != count or any(candidate.region != region for candidate in candidates):
+            raise ValueError(f"Invalid {region} candidate quota")
+        return candidates
+
+    try:
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = [executor.submit(search_region, region, count) for region, count in quotas.items()]
+            candidates = [candidate for future in futures for candidate in future.result()]
+        return SpeakerDiscoveryResponse(candidates=candidates)
     except (OpenAIError, OSError):
         logger.exception("Foundry speaker discovery failed")
         raise HTTPException(status_code=502, detail="Speaker web search failed") from None

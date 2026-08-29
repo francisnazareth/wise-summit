@@ -94,8 +94,17 @@ def test_speaker_discovery_requires_web_search_and_regional_split(
         for index in range(count)
     ]
     response_item = SimpleNamespace(type="web_search_call")
-    fake_response = SimpleNamespace(output=[response_item], output_text=__import__("json").dumps({"candidates": candidates}))
-    fake_responses = SimpleNamespace(create=lambda **kwargs: fake_response)
+
+    def create_response(**kwargs: object) -> object:
+        prompt = str(kwargs["input"])
+        region = next(region for region in counts if f"based in {region}" in prompt)
+        regional_candidates = [candidate for candidate in candidates if candidate["region"] == region]
+        return SimpleNamespace(
+            output=[response_item],
+            output_text=__import__("json").dumps({"candidates": regional_candidates}),
+        )
+
+    fake_responses = SimpleNamespace(create=create_response)
     app.dependency_overrides[get_responses_client] = lambda: SimpleNamespace(responses=fake_responses)
 
     response = test_client.post("/api/speakers/discover", json={"theme": "Proof, Practice, Progress"})
