@@ -88,7 +88,7 @@ def chat(
         completion = client.chat.completions.create(
             model=deployment,
             messages=[{"role": "user", "content": request.message}],
-            max_tokens=800,
+            max_completion_tokens=800,
         )
     except (OpenAIError, OSError):
         logger.exception("Foundry model invocation failed")

@@ -51,7 +51,7 @@ def test_chat_invokes_configured_deployment(client: tuple[TestClient, FakeComple
     assert completions.last_request == {
         "model": "gpt-4-1",
         "messages": [{"role": "user", "content": "Build a schedule"}],
-        "max_tokens": 800,
+        "max_completion_tokens": 800,
     }
 
 
