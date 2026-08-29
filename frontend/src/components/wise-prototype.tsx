@@ -16,6 +16,18 @@ type SpeakerStage = "Identified" | "Invited" | "Accepted" | "Confirmed" | "Trave
 type SpeakerRecord = { name: string; role: string; region: string; stage: SpeakerStage; score: number };
 type SessionTopic = { id: string; title: string; track: string; speaker?: string; time?: string; location?: string };
 type ProgramRecord = { name: string; theme: string; location: string; attendees: string; speakers: string; budget: string; narrative: string; status: "Active" | "Planning" };
+type StrategyCandidate = { theme: string; territory: string };
+type StrategyOutput = {
+  candidates: StrategyCandidate[];
+  recommendedTheme: string;
+  rationale: string;
+  strategicFit: number;
+  audienceResonance: number;
+  contentExtensibility: number;
+  trace: string[];
+};
+
+const strategyApiUrl = process.env.NEXT_PUBLIC_API_URL ?? "https://app-wise-demo-api-58de9d.azurewebsites.net";
 
 const nav: Array<[Stage, typeof Activity]> = [
   ["Overview", LayoutDashboard], ["Programs", CalendarDays], ["Strategy", Target], ["Speakers", Users], ["Content", MessageSquareText],
@@ -23,6 +35,30 @@ const nav: Array<[Stage, typeof Activity]> = [
   ["Approvals", ListChecks], ["Live Ops", Activity], ["Reports", FileBarChart],
 ];
 const themes = ["Innovating Education for a Changing World", "Evidence Into Action", "Human Agency in the Age of AI", "Learning Systems That Adapt"];
+const initialStrategyOutput: StrategyOutput = {
+  candidates: themes.map((theme, index) => ({
+    theme,
+    territory: index === 0 ? "Innovation · evidence · global impact" : "Agent-generated strategic territory",
+  })),
+  recommendedTheme: themes[0],
+  rationale: "WISE advances evidence-driven solutions that strengthen learning systems, expand opportunity, and create practical pathways to adoption.",
+  strategicFit: 96,
+  audienceResonance: 91,
+  contentExtensibility: 88,
+  trace: [],
+};
+
+function parseStrategyOutput(message: string): StrategyOutput {
+  const firstBrace = message.indexOf("{");
+  const lastBrace = message.lastIndexOf("}");
+  if (firstBrace < 0 || lastBrace <= firstBrace) throw new Error("The model did not return strategy JSON.");
+
+  const output = JSON.parse(message.slice(firstBrace, lastBrace + 1)) as StrategyOutput;
+  if (!Array.isArray(output.candidates) || output.candidates.length === 0 || !output.recommendedTheme || !output.rationale) {
+    throw new Error("The model returned an incomplete strategy.");
+  }
+  return output;
+}
 const initialAgents: Array<{ name: string; task: string; status: AgentStatus }> = [
   { name: "Strategy Agent", task: "Theme evidence synthesis", status: "complete" },
   { name: "Talent Scout", task: "Global speaker discovery", status: "running" },
@@ -116,10 +152,47 @@ export function WisePrototype() {
   const [speakerRecords, setSpeakerRecords] = useState(speakers);
   const [sessionTopics, setSessionTopics] = useState<SessionTopic[]>([]);
   const [programs, setPrograms] = useState(initialPrograms);
+  const [strategyOutput, setStrategyOutput] = useState(initialStrategyOutput);
+  const [strategyError, setStrategyError] = useState("");
 
   const runAgent = (name: string, result: string) => {
     setAgents(current => current.map(agent => agent.name === name ? { ...agent, status: "complete" } : agent));
     setLogs(current => [result, ...current].slice(0, 5));
+  };
+
+  const runStrategyAgent = async () => {
+    if (agents.find(agent => agent.name === "Strategy Agent")?.status === "running") return;
+
+    setStrategyError("");
+    setAgents(current => current.map(agent => agent.name === "Strategy Agent" ? { ...agent, status: "running", task: "Synthesizing live summit signals" } : agent));
+    setLogs(current => ["Strategy Agent started audience, archive, market, and impact synthesis", ...current].slice(0, 8));
+
+    const prompt = `You are the WISE Summit Strategy Agent. Create a fresh strategic direction for WISE Summit 2027 in Doha. The summit should advance global education through evidence, innovation, human agency, and practical impact. Return JSON only with this exact shape: {"candidates":[{"theme":"short theme title","territory":"short strategic territory"}],"recommendedTheme":"one candidate theme","rationale":"a concise two-sentence strategy suitable for leadership","strategicFit":95,"audienceResonance":90,"contentExtensibility":88,"trace":["short synthesis step","short synthesis step","short synthesis step"]}. Include exactly four distinct candidates. Scores must be integers from 0 to 100. Do not reuse the current theme "${selectedTheme}".`;
+
+    try {
+      const response = await fetch(`${strategyApiUrl}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: prompt }),
+      });
+      const payload = await response.json() as { message?: string; detail?: string };
+      if (!response.ok || !payload.message) throw new Error(payload.detail ?? "The Strategy Agent did not return a result.");
+
+      const output = parseStrategyOutput(payload.message);
+      setStrategyOutput(output);
+      setSelectedTheme(output.recommendedTheme);
+      setAgents(current => current.map(agent => agent.name === "Strategy Agent" ? { ...agent, status: "complete", task: `${output.candidates.length} strategic themes generated` } : agent));
+      setLogs(current => [
+        `Strategy Agent recommends “${output.recommendedTheme}”`,
+        ...output.trace.map(step => `Strategy trace · ${step}`),
+        ...current,
+      ].slice(0, 8));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Strategy generation failed.";
+      setStrategyError(message);
+      setAgents(current => current.map(agent => agent.name === "Strategy Agent" ? { ...agent, status: "idle", task: "Generation failed · ready to retry" } : agent));
+      setLogs(current => [`Strategy Agent failed · ${message}`, ...current].slice(0, 8));
+    }
   };
 
   const handleLogin = (event: React.FormEvent<HTMLFormElement>) => {
@@ -151,7 +224,9 @@ export function WisePrototype() {
         <div className="process-rail">{["Strategy", "Speakers", "Content", "Planning", "Execution"].map((step, index) => <button key={step} className={active === step || (active === "Overview" && index === 0) ? "current" : index < 1 ? "done" : ""} onClick={() => index < 3 && setActive(step as Stage)}><span>{index < 1 ? <Check size={13}/> : index + 1}</span><b>{step}</b>{index < 4 && <i/>}</button>)}</div>
         {active === "Overview" && <ExecutiveCenter setActive={setActive}/>} 
         {active === "Programs" && <ProgramsView programs={programs} onCreate={program => { setPrograms(current => [...current.filter(item => item.name !== program.name), program]); setLogs(current => [`Program Agent created ${program.name} operating environment`, ...current].slice(0, 5)); }}/>} 
-        {active === "Strategy" && <StrategyView selectedTheme={selectedTheme} setSelectedTheme={setSelectedTheme} onRun={() => runAgent("Strategy Agent", `Strategy Agent approved “${selectedTheme}” against 6 objectives`)}/>} 
+        {active === "Strategy" && (
+          <StrategyView output={strategyOutput} selectedTheme={selectedTheme} setSelectedTheme={setSelectedTheme} status={agents.find(agent => agent.name === "Strategy Agent")?.status ?? "idle"} error={strategyError} onRun={runStrategyAgent}/>
+        )}
         {active === "Speakers" && <SpeakersView speakers={speakerRecords} filter={speakerFilter} setFilter={setSpeakerFilter} onStageChange={(name, stage) => { setSpeakerRecords(current => current.map(speaker => speaker.name === name ? { ...speaker, stage } : speaker)); setLogs(current => [`Speaker Lead moved ${name} to ${stage}`, ...current].slice(0, 5)); }} onRun={() => runAgent("Talent Scout", "Talent Scout added 18 candidates across 7 markets")}/>} 
         {active === "Content" && <ContentView count={sessionCount} speakers={speakerRecords} topics={sessionTopics} setTopics={setSessionTopics} onRun={() => { setSessionCount(value => value + 1); runAgent("Content Curator", "Content Curator drafted “From Evidence to Adoption” session"); }}/>} 
         {active === "Content" && <ProgramBuilder/>}
@@ -184,8 +259,9 @@ function ProgramsView({ programs, onCreate }: { programs: ProgramRecord[]; onCre
   return <><div className="programs-heading"><div><span>Program portfolio</span><h1>Summits and operating environments</h1><p>Create and manage each summit from one shared command center.</p></div><button onClick={()=>setCreating(true)}><Plus size={16}/>Create Program</button></div>{createdName&&<div className="program-success"><Check size={16}/><p><b>{createdName} is ready.</b>Strategy, speakers, content, planning, budget, and risk workspaces were created.</p></div>}<section className="program-list">{programs.map(program=><article key={program.name}><header><span>{program.status}</span><CalendarDays size={18}/></header><h2>{program.name}</h2><p>{program.theme}</p><dl><div><dt>Location</dt><dd>{program.location}</dd></div><div><dt>Attendees</dt><dd>{program.attendees}</dd></div><div><dt>Speakers</dt><dd>{program.speakers}</dd></div><div><dt>Budget</dt><dd>{program.budget}</dd></div></dl><footer><small>{program.narrative}</small><button aria-label={`Open ${program.name}`}><ArrowRight size={16}/></button></footer></article>)}</section></>;
 }
 
-function StrategyView({ selectedTheme, setSelectedTheme, onRun }: { selectedTheme: string; setSelectedTheme: (theme: string) => void; onRun: () => void }) {
-  return <><PageHead eyebrow="Stage 01 · Strategy" title="Define the summit’s strategic spine." copy="Turn audience signals, WISE values, and market context into a defensible theme." action="Run Strategy Agent" onAction={onRun}/><div className="agent-map"><div className="agent-node central"><Bot size={21}/><b>Strategy Agent</b><small>Orchestrating synthesis</small></div>{[["Audience Research", "12 signals"],["WISE Archive", "5 summits"],["Market Lens", "8 trends"],["Impact Model", "6 outcomes"]].map(([name,note], index) => <div className={`agent-node node-${index}`} key={name}><Sparkles size={16}/><b>{name}</b><small>{note}</small></div>)}</div><section className="strategy-grid"><article className="proto-panel"><PanelTitle eyebrow="Theme candidates" title="Select the narrative direction"/><div className="theme-list">{themes.map((theme,index) => <button className={selectedTheme === theme ? "selected" : ""} key={theme} onClick={() => setSelectedTheme(theme)}><span>{String(index+1).padStart(2,"0")}</span><div><b>{theme}</b><small>{index === 0 ? "Innovation · evidence · global impact" : "Agent-generated strategic territory"}</small></div>{selectedTheme === theme && <Check size={17}/>}</button>)}</div></article><article className="proto-panel rationale"><PanelTitle eyebrow="Agent rationale" title={selectedTheme}/><blockquote>“WISE advances evidence-driven solutions that strengthen learning systems, expand opportunity, and create practical pathways to adoption.”</blockquote><label>Strategic fit <b>96%</b></label><label>Audience resonance <b>91%</b></label><label>Content extensibility <b>88%</b></label><button onClick={onRun}><Check size={16}/> Approve strategic direction</button></article></section></>;
+function StrategyView({ output, selectedTheme, setSelectedTheme, status, error, onRun }: { output: StrategyOutput; selectedTheme: string; setSelectedTheme: (theme: string) => void; status: AgentStatus; error: string; onRun: () => void }) {
+  const selectedCandidate = output.candidates.find(candidate => candidate.theme === selectedTheme) ?? output.candidates[0];
+  return <><PageHead eyebrow="Stage 01 · Strategy" title="Define the summit’s strategic spine." copy="Turn audience signals, WISE values, and market context into a defensible theme." action={status === "running" ? "Running Strategy Agent" : "Run Strategy Agent"} onAction={onRun} actionDisabled={status === "running"}/><div className="agent-map"><div className={`agent-node central ${status}`}><Bot size={21}/><b>Strategy Agent</b><small>{status === "running" ? "Synthesizing live signals" : status === "complete" ? "Synthesis complete" : "Ready to orchestrate"}</small></div>{[["Audience Research", "12 signals"],["WISE Archive", "5 summits"],["Market Lens", "8 trends"],["Impact Model", "6 outcomes"]].map(([name,note], index) => <div className={`agent-node node-${index}`} key={name}><Sparkles size={16}/><b>{name}</b><small>{note}</small></div>)}</div>{error&&<div className="strategy-error" role="alert"><AlertTriangle size={16}/><span>{error}</span><button onClick={onRun}>Retry</button></div>}<section className="strategy-grid"><article className="proto-panel"><PanelTitle eyebrow="Theme candidates" title="Select the narrative direction"/><div className="theme-list">{output.candidates.map((candidate,index) => <button className={selectedTheme === candidate.theme ? "selected" : ""} key={candidate.theme} onClick={() => setSelectedTheme(candidate.theme)}><span>{String(index+1).padStart(2,"0")}</span><div><b>{candidate.theme}</b><small>{candidate.territory}</small></div>{selectedTheme === candidate.theme && <Check size={17}/>}</button>)}</div></article><article className="proto-panel rationale"><PanelTitle eyebrow="Agent rationale" title={selectedCandidate?.theme ?? output.recommendedTheme}/><blockquote>“{output.rationale}”</blockquote><label>Strategic fit <b>{output.strategicFit}%</b></label><label>Audience resonance <b>{output.audienceResonance}%</b></label><label>Content extensibility <b>{output.contentExtensibility}%</b></label><button><Check size={16}/> Approve strategic direction</button></article></section></>;
 }
 
 function SpeakersView({ speakers, filter, setFilter, onStageChange, onRun }: { speakers: SpeakerRecord[]; filter: string; setFilter: (value:string)=>void; onStageChange:(name:string,stage:SpeakerStage)=>void; onRun:()=>void }) {
@@ -216,6 +292,6 @@ function ModuleProfile({ active }: { active: Stage }) {
   return <><PageHead eyebrow="Operational module" title={active} copy={`High-level ${active.toLowerCase()} profile with shared progress and agent observability.`}/><section className="module-cards">{(data[active]||[]).map(([label,value,note])=><article key={label}><small>{label}</small><strong>{value}</strong><p>{note}</p></article>)}</section><article className="proto-panel module-placeholder"><Network size={30}/><h2>{active} workspace</h2><p>This module is connected to the shared summit graph. Agent outputs, approvals, and exceptions from the first three stages appear here automatically.</p><button>Open module profile <ArrowRight size={15}/></button></article></>;
 }
 
-function AgentRail({ agents, logs }: { agents: typeof initialAgents; logs: string[] }) { return <aside className="agent-rail"><header><span><Activity size={17}/></span><div><b>Agent observability</b><small>5 agents · 2 running</small></div><i/></header><section><label>Orchestration graph</label>{agents.map(agent=><div className="agent-run" key={agent.name}><span className={agent.status}/><div><b>{agent.name}</b><small>{agent.task}</small></div><em>{agent.status}</em></div>)}</section><section className="run-log"><label>Live trace</label>{logs.map((log,index)=><div key={log}><time>{index===0?"now":`${index*4}m`}</time><p>{log}</p></div>)}</section><footer><Clock3 size={14}/> Last synchronized just now</footer></aside>; }
-function PageHead({eyebrow,title,copy,action,onAction}:{eyebrow:string;title:string;copy:string;action?:string;onAction?:()=>void}) { return <div className="proto-heading"><div><span>{eyebrow}</span><h1>{title}</h1><p>{copy}</p></div>{action&&<button onClick={onAction}><Play size={15}/>{action}</button>}</div>; }
+function AgentRail({ agents, logs }: { agents: typeof initialAgents; logs: string[] }) { const running=agents.filter(agent=>agent.status==="running").length; return <aside className="agent-rail"><header><span><Activity size={17}/></span><div><b>Agent observability</b><small>{agents.length} agents · {running} running</small></div><i/></header><section><label>Orchestration graph</label>{agents.map(agent=><div className={`agent-run ${agent.status}`} key={agent.name}><span className={agent.status}/><div><b>{agent.name}</b><small>{agent.task}</small></div><em>{agent.status}</em></div>)}</section><section className="run-log"><label>Live trace</label>{logs.map((log,index)=><div key={`${index}-${log}`}><time>{index===0?"now":`${index*4}m`}</time><p>{log}</p></div>)}</section><footer><Clock3 size={14}/> Last synchronized just now</footer></aside>; }
+function PageHead({eyebrow,title,copy,action,onAction,actionDisabled=false}:{eyebrow:string;title:string;copy:string;action?:string;onAction?:()=>void;actionDisabled?:boolean}) { return <div className="proto-heading"><div><span>{eyebrow}</span><h1>{title}</h1><p>{copy}</p></div>{action&&<button onClick={onAction} disabled={actionDisabled}><Play size={15}/>{action}</button>}</div>; }
 function PanelTitle({eyebrow,title}:{eyebrow:string;title:string}) { return <div className="proto-panel-title"><span>{eyebrow}</span><h2>{title}</h2></div>; }

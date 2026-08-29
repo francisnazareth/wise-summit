@@ -3,6 +3,7 @@ import { DM_Sans, Fraunces } from "next/font/google";
 import "./globals.css";
 import "./dashboard.css";
 import "./workflow.css";
+import "./strategy-agent.css";
 import "./schedule.css";
 import "./home-hero.css";
 import "./auth.css";

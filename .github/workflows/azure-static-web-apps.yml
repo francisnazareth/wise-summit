@@ -40,6 +40,8 @@ jobs:
       - name: Build static site
         run: npm run build
         working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: https://app-wise-demo-api-58de9d.azurewebsites.net
 
       - name: Deploy to Azure Static Web Apps
         uses: Azure/static-web-apps-deploy@v1

@@ -1,0 +1,40 @@
+.proto-heading > button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.agent-node.central.running,
+.agent-run.running {
+  box-shadow: 0 0 0 2px #25bfa355;
+  animation: strategy-pulse 1.4s ease-in-out infinite;
+}
+
+.strategy-error {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid #d66b5d55;
+  background: #fff4f1;
+  color: #8b3026;
+  font-size: 11px;
+}
+
+.strategy-error span {
+  flex: 1;
+}
+
+.strategy-error button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+@keyframes strategy-pulse {
+  50% {
+    box-shadow: 0 0 0 7px #25bfa312;
+  }
+}
