@@ -1,0 +1,13 @@
+name: wise-ops
+metadata:
+  template: wise-ops@0.1.0
+infra:
+  provider: bicep
+  path: infra
+services:
+  api:
+    project: ./src/backend
+    host: appservice
+    language: py
+    dist: .
+    remoteBuild: true

@@ -7,6 +7,7 @@ import "./schedule.css";
 import "./home-hero.css";
 import "./auth.css";
 import "./programs.css";
+import "./operational.css";
 
 const dmSans = DM_Sans({
   variable: "--font-sans",
