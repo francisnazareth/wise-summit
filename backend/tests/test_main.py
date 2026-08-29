@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
-from main import app, get_foundry_client
+from main import app, get_foundry_client, get_responses_client
 
 
 class FakeCompletions:
@@ -75,3 +75,30 @@ def test_chat_reports_upstream_failure(client: tuple[TestClient, FakeCompletions
 
     assert response.status_code == 502
     assert response.json() == {"detail": "Model invocation failed"}
+
+
+def test_speaker_discovery_requires_web_search_and_regional_split(
+    client: tuple[TestClient, FakeCompletions],
+) -> None:
+    test_client, _ = client
+    counts = {"USA": 30, "Europe": 20, "Africa": 20, "Asia": 30}
+    candidates = [
+        {
+            "name": f"{region} Candidate {index}",
+            "role": "Education leader",
+            "region": region,
+            "score": 90,
+            "source_url": "https://example.com/profile",
+        }
+        for region, count in counts.items()
+        for index in range(count)
+    ]
+    response_item = SimpleNamespace(type="web_search_call")
+    fake_response = SimpleNamespace(output=[response_item], output_text=__import__("json").dumps({"candidates": candidates}))
+    fake_responses = SimpleNamespace(create=lambda **kwargs: fake_response)
+    app.dependency_overrides[get_responses_client] = lambda: SimpleNamespace(responses=fake_responses)
+
+    response = test_client.post("/api/speakers/discover", json={"theme": "Proof, Practice, Progress"})
+
+    assert response.status_code == 200
+    assert len(response.json()["candidates"]) == 100
