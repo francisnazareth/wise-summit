@@ -79,6 +79,7 @@ def test_chat_reports_upstream_failure(client: tuple[TestClient, FakeCompletions
 
 def test_speaker_discovery_requires_web_search_and_regional_split(
     client: tuple[TestClient, FakeCompletions],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     test_client, _ = client
     counts = {"USA": 30, "Europe": 20, "Africa": 20, "Asia": 30}
@@ -118,3 +119,5 @@ def test_speaker_discovery_requires_web_search_and_regional_split(
 
     assert response.status_code == 200
     assert len(response.json()["candidates"]) == 100
+    assert "Foundry speaker response region=USA" in caplog.text
+    assert '"USA Candidate 0"' in caplog.text
