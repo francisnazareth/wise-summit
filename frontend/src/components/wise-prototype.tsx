@@ -36,7 +36,7 @@ const nav: Array<[Stage, typeof Activity]> = [
   ["Stakeholders", Network], ["Planning", CalendarDays], ["Budget", CircleDollarSign], ["Risks", ShieldAlert],
   ["Approvals", ListChecks], ["Live Ops", Activity], ["Reports", FileBarChart],
 ];
-const themes = ["Innovating Education for a Changing World", "Evidence Into Action", "Human Agency in the Age of AI", "Learning Systems That Adapt"];
+const themes = ["Learning to Flourish", "Innovating Education for a Changing World", "Evidence Into Action", "Human Agency in the Age of AI", "Learning Systems That Adapt"];
 const initialStrategyOutput: StrategyOutput = {
   candidates: themes.map((theme, index) => ({
     theme,
