@@ -40,7 +40,7 @@ const themes = ["Learning to Flourish", "Innovating Education for a Changing Wor
 const initialStrategyOutput: StrategyOutput = {
   candidates: themes.map((theme, index) => ({
     theme,
-    territory: index === 0 ? "Innovation · evidence · global impact" : "Agent-generated strategic territory",
+    territory: index === 0 ? "Learning · wellbeing · human potential" : "Agent-generated strategic territory",
   })),
   recommendedTheme: themes[0],
   rationale: "WISE advances evidence-driven solutions that strengthen learning systems, expand opportunity, and create practical pathways to adoption.",
