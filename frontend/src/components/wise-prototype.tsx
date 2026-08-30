@@ -393,5 +393,18 @@ function ModuleProfile({ active }: { active: Stage }) {
 }
 
 function AgentRail({ agents, logs }: { agents: typeof initialAgents; logs: string[] }) { const running=agents.filter(agent=>agent.status==="running").length; return <aside className="agent-rail"><header><span><Activity size={17}/></span><div><b>Agent observability</b><small>{agents.length} agents · {running} running</small></div><i/></header><section><label>Orchestration graph</label>{agents.map(agent=><div className={`agent-run ${agent.status}`} key={agent.name}><span className={agent.status}/><div><b>{agent.name}</b><small>{agent.task}</small></div><em>{agent.status}</em></div>)}</section><section className="run-log"><label>Live trace</label>{logs.map((log,index)=><div key={`${index}-${log}`}><time>{index===0?"now":`${index*4}m`}</time><p>{log}</p></div>)}</section><footer><Clock3 size={14}/> Last synchronized just now</footer></aside>; }
-function PageHead({eyebrow,title,copy,action,onAction,actionDisabled=false}:{eyebrow:string;title:string;copy:string;action?:string;onAction?:()=>void;actionDisabled?:boolean}) { return <div className="proto-heading"><div><span>{eyebrow}</span><h1>{title}</h1><p>{copy}</p></div>{action&&<button onClick={onAction} disabled={actionDisabled}><Play size={15}/>{action}</button>}</div>; }
+function PageHead({eyebrow,title,copy,action,onAction,actionDisabled=false}:{eyebrow:string;title:string;copy:string;action?:string;onAction?:()=>void|Promise<void>;actionDisabled?:boolean}) {
+  const [actionPending, setActionPending] = useState(false);
+  const handleAction = async () => {
+    if (!onAction || actionPending) return;
+    setActionPending(true);
+    try {
+      await onAction();
+    } finally {
+      setActionPending(false);
+    }
+  };
+  const actionLabel = actionPending && action === "Generate session" ? "Generating session ideas" : action;
+  return <div className="proto-heading"><div><span>{eyebrow}</span><h1>{title}</h1><p>{copy}</p></div>{action&&<button onClick={handleAction} disabled={actionDisabled||actionPending}><Play size={15}/>{actionLabel}</button>}</div>;
+}
 function PanelTitle({eyebrow,title}:{eyebrow:string;title:string}) { return <div className="proto-panel-title"><span>{eyebrow}</span><h2>{title}</h2></div>; }
