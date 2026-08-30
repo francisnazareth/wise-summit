@@ -97,6 +97,8 @@ def test_speaker_discovery_requires_web_search_and_regional_split(
 
     def create_response(**kwargs: object) -> object:
         prompt = str(kwargs["input"])
+        assert kwargs["reasoning"] == {"effort": "low"}
+        assert kwargs["max_output_tokens"] == 12_000
         region = next(region for region in counts if f"based in {region}" in prompt)
         regional_candidates = [candidate for candidate in candidates if candidate["region"] == region]
         return SimpleNamespace(

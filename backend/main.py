@@ -178,7 +178,8 @@ Find real, living education, policy, technology, research, social-impact, or phi
             tools=[{"type": "web_search"}],
             input=prompt,
             text={"format": {"type": "json_schema", "name": "speaker_candidates", "strict": True, "schema": schema}},
-            max_output_tokens=5_000,
+            reasoning={"effort": "low"},
+            max_output_tokens=12_000,
         )
         if not any(item.type == "web_search_call" for item in response.output):
             raise ValueError(f"The model did not perform a web search for {region}")
