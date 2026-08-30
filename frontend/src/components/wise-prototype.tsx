@@ -62,7 +62,7 @@ function parseStrategyOutput(message: string): StrategyOutput {
 }
 const initialAgents: Array<{ name: string; task: string; status: AgentStatus }> = [
   { name: "Strategy Agent", task: "Theme evidence synthesis", status: "complete" },
-  { name: "Talent Scout", task: "Global speaker discovery", status: "running" },
+  { name: "Talent Scout", task: "Ready for global speaker discovery", status: "idle" },
   { name: "Outreach Agent", task: "Personalized invitation queue", status: "queued" },
   { name: "Content Curator", task: "Session architecture", status: "running" },
   { name: "Risk Sentinel", task: "Cross-workstream monitoring", status: "complete" },
