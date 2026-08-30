@@ -181,12 +181,38 @@ Find real, living education, policy, technology, research, social-impact, or phi
             reasoning={"effort": "low"},
             max_output_tokens=12_000,
         )
-        if not any(item.type == "web_search_call" for item in response.output):
+        output_items = [(item.type, getattr(item, "status", None)) for item in response.output]
+        web_search_performed = any(item.type == "web_search_call" for item in response.output)
+        usage = response.usage.model_dump() if response.usage else None
+        logger.info(
+            "Foundry speaker response region=%s response_id=%s status=%s incomplete_details=%r "
+            "error=%r output_items=%s web_search=%s usage=%s output_length=%s output=%s",
+            region,
+            response.id,
+            response.status,
+            response.incomplete_details,
+            response.error,
+            output_items,
+            web_search_performed,
+            usage,
+            len(response.output_text),
+            response.output_text,
+        )
+        if not web_search_performed:
             raise ValueError(f"The model did not perform a web search for {region}")
-        payload = json.loads(response.output_text)
-        candidates = [SpeakerCandidate.model_validate(candidate) for candidate in payload["candidates"]]
+        try:
+            payload = json.loads(response.output_text)
+            candidates = [SpeakerCandidate.model_validate(candidate) for candidate in payload["candidates"]]
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+            logger.exception(
+                "Foundry speaker response validation failed region=%s response_id=%s",
+                region,
+                response.id,
+            )
+            raise
         if len(candidates) != count or any(candidate.region != region for candidate in candidates):
             raise ValueError(f"Invalid {region} candidate quota")
+        logger.info("Foundry speaker response validated region=%s candidates=%s", region, len(candidates))
         return candidates
 
     try:

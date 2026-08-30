@@ -102,8 +102,13 @@ def test_speaker_discovery_requires_web_search_and_regional_split(
         region = next(region for region in counts if f"based in {region}" in prompt)
         regional_candidates = [candidate for candidate in candidates if candidate["region"] == region]
         return SimpleNamespace(
+            id=f"response-{region}",
+            status="completed",
+            incomplete_details=None,
+            error=None,
             output=[response_item],
             output_text=__import__("json").dumps({"candidates": regional_candidates}),
+            usage=SimpleNamespace(model_dump=lambda: {"total_tokens": 100}),
         )
 
     fake_responses = SimpleNamespace(create=create_response)
