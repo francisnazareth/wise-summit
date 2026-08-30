@@ -57,6 +57,27 @@ class SpeakerDiscoveryResponse(BaseModel):
         return self
 
 
+class SessionGenerationRequest(BaseModel):
+    theme: str = Field(min_length=1, max_length=500)
+
+
+class SessionIdea(BaseModel):
+    title: str = Field(min_length=3, max_length=120)
+    description: str = Field(min_length=20, max_length=600)
+    track: Literal["Policy", "Innovation", "Global outlook", "Roundtable", "Workshop", "Partner session"]
+
+
+class SessionGenerationResponse(BaseModel):
+    sessions: list[SessionIdea] = Field(min_length=100, max_length=100)
+
+    @model_validator(mode="after")
+    def validate_unique_titles(self) -> "SessionGenerationResponse":
+        titles = {session.title.casefold() for session in self.sessions}
+        if len(titles) != len(self.sessions):
+            raise ValueError("Session titles must be unique")
+        return self
+
+
 _speaker_cache: SpeakerDiscoveryResponse | None = None
 _speaker_cache_lock = Lock()
 
@@ -147,6 +168,86 @@ def chat(
     if not content:
         raise HTTPException(status_code=502, detail="Model returned an empty response")
     return ChatResponse(message=content)
+
+
+@app.post("/api/sessions/generate", response_model=SessionGenerationResponse)
+def generate_sessions(
+    request: SessionGenerationRequest,
+    client: Annotated[OpenAI, Depends(get_responses_client)],
+) -> SessionGenerationResponse:
+    deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT")
+    if not deployment:
+        raise HTTPException(status_code=503, detail="Model deployment is not configured")
+
+    lenses = [
+        "education policy, public systems, and evidence adoption",
+        "responsible technology, AI, and learning innovation",
+        "learner, teacher, community, and youth perspectives",
+        "global partnerships, implementation, and hands-on practice",
+    ]
+    tracks = ["Policy", "Innovation", "Global outlook", "Roundtable", "Workshop", "Partner session"]
+
+    def generate_batch(batch_number: int, lens: str) -> list[SessionIdea]:
+        prompt = f"""Create exactly 25 distinct session ideas for WISE Summit 2027 in Doha.
+The approved strategic theme is: {request.theme}
+This is idea batch {batch_number} of 4. Focus on {lens} so its titles do not overlap other batches.
+Write specific, editorial-quality titles and concise two-sentence descriptions that explain the question, tension, or practical outcome. Vary the formats and assign the most suitable available track."""
+        schema = {
+            "type": "object",
+            "properties": {
+                "sessions": {
+                    "type": "array",
+                    "minItems": 25,
+                    "maxItems": 25,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "title": {"type": "string", "minLength": 3, "maxLength": 120},
+                            "description": {"type": "string", "minLength": 20, "maxLength": 600},
+                            "track": {"type": "string", "enum": tracks},
+                        },
+                        "required": ["title", "description", "track"],
+                        "additionalProperties": False,
+                    },
+                }
+            },
+            "required": ["sessions"],
+            "additionalProperties": False,
+        }
+        response = client.responses.create(
+            model=deployment,
+            input=prompt,
+            text={"format": {"type": "json_schema", "name": "session_ideas", "strict": True, "schema": schema}},
+            reasoning={"effort": "low"},
+            max_output_tokens=9_000,
+        )
+        logger.info(
+            "Foundry session response batch=%s response_id=%s status=%s output_length=%s",
+            batch_number,
+            response.id,
+            response.status,
+            len(response.output_text),
+        )
+        payload = json.loads(response.output_text)
+        ideas = [SessionIdea.model_validate(session) for session in payload["sessions"]]
+        if len(ideas) != 25:
+            raise ValueError(f"Invalid session idea count for batch {batch_number}")
+        return ideas
+
+    try:
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = [
+                executor.submit(generate_batch, batch_number, lens)
+                for batch_number, lens in enumerate(lenses, start=1)
+            ]
+            sessions = [session for future in futures for session in future.result()]
+        return SessionGenerationResponse(sessions=sessions)
+    except (OpenAIError, OSError):
+        logger.exception("Foundry session generation failed")
+        raise HTTPException(status_code=502, detail="Session generation failed") from None
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+        logger.exception("Foundry returned invalid session ideas")
+        raise HTTPException(status_code=502, detail="Model returned invalid session ideas") from None
 
 
 @app.post("/api/speakers/discover", response_model=SpeakerDiscoveryResponse)

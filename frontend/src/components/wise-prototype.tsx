@@ -15,7 +15,8 @@ type AgentStatus = "complete" | "running" | "queued" | "idle";
 type SpeakerStage = "Identified" | "Invited" | "Accepted" | "Confirmed" | "Travel Planned" | "Ready";
 type SpeakerRecord = { name: string; role: string; region: string; stage: SpeakerStage; score: number; sourceUrl?: string };
 type DiscoveredSpeaker = { name: string; role: string; region: "USA" | "Europe" | "Africa" | "Asia"; score: number; source_url: string };
-type SessionTopic = { id: string; title: string; track: string; speaker?: string; time?: string; location?: string };
+type SessionTopic = { id: string; title: string; track: string; description?: string; speaker?: string; time?: string; location?: string };
+type SessionIdea = { title: string; description: string; track: string };
 type ProgramRecord = { name: string; theme: string; location: string; attendees: string; speakers: string; budget: string; narrative: string; status: "Active" | "Planning" };
 type StrategyCandidate = { theme: string; territory: string };
 type StrategyOutput = {
@@ -64,7 +65,7 @@ const initialAgents: Array<{ name: string; task: string; status: AgentStatus }> 
   { name: "Strategy Agent", task: "Theme evidence synthesis", status: "complete" },
   { name: "Talent Scout", task: "Ready for global speaker discovery", status: "idle" },
   { name: "Outreach Agent", task: "Personalized invitation queue", status: "queued" },
-  { name: "Content Curator", task: "Session architecture", status: "running" },
+  { name: "Content Curator", task: "Ready to generate session ideas", status: "idle" },
   { name: "Risk Sentinel", task: "Cross-workstream monitoring", status: "complete" },
 ];
 const speakerStages: SpeakerStage[] = ["Identified", "Invited", "Accepted", "Confirmed", "Travel Planned", "Ready"];
@@ -149,13 +150,15 @@ export function WisePrototype() {
   const [agents, setAgents] = useState(initialAgents);
   const [logs, setLogs] = useState(["Talent Scout ranked 24 education leaders", "Content Curator mapped 4 sessions to system outcomes", "Risk Sentinel cleared policy track dependency"]);
   const [speakerFilter, setSpeakerFilter] = useState("All");
-  const [sessionCount, setSessionCount] = useState(4);
+  const [sessionCount] = useState(4);
   const [speakerRecords, setSpeakerRecords] = useState(speakers);
   const [sessionTopics, setSessionTopics] = useState<SessionTopic[]>([]);
+  const [sessionIdeas, setSessionIdeas] = useState<SessionIdea[]>([]);
   const [programs, setPrograms] = useState(initialPrograms);
   const [strategyOutput, setStrategyOutput] = useState(initialStrategyOutput);
   const [strategyError, setStrategyError] = useState("");
   const [speakerError, setSpeakerError] = useState("");
+  const [sessionError, setSessionError] = useState("");
 
   const showDiscoveredSpeakers = (candidates: DiscoveredSpeaker[]) => {
     setSpeakerRecords(candidates.map(candidate => ({
@@ -186,11 +189,6 @@ export function WisePrototype() {
 
     void loadCachedSpeakers();
   }, [active]);
-
-  const runAgent = (name: string, result: string) => {
-    setAgents(current => current.map(agent => agent.name === name ? { ...agent, status: "complete" } : agent));
-    setLogs(current => [result, ...current].slice(0, 5));
-  };
 
   const runStrategyAgent = async () => {
     if (agents.find(agent => agent.name === "Strategy Agent")?.status === "running") return;
@@ -254,6 +252,34 @@ export function WisePrototype() {
     }
   };
 
+  const runSessionGeneration = async () => {
+    if (agents.find(agent => agent.name === "Content Curator")?.status === "running") return;
+
+    setSessionError("");
+    setSessionIdeas([]);
+    setAgents(current => current.map(agent => agent.name === "Content Curator" ? { ...agent, status: "running", task: "Generating four editorial idea batches" } : agent));
+    setLogs(current => ["Content Curator started generating 100 session ideas", ...current].slice(0, 8));
+
+    try {
+      const response = await fetch(`${strategyApiUrl}/api/sessions/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ theme: selectedTheme }),
+      });
+      const payload = await response.json() as { sessions?: SessionIdea[]; detail?: string };
+      if (!response.ok || !payload.sessions) throw new Error(payload.detail ?? "Session generation did not return ideas.");
+
+      setSessionIdeas(payload.sessions);
+      setAgents(current => current.map(agent => agent.name === "Content Curator" ? { ...agent, status: "complete", task: `${payload.sessions?.length ?? 0} session ideas generated` } : agent));
+      setLogs(current => [`Content Curator generated ${payload.sessions?.length ?? 0} session ideas for “${selectedTheme}”`, ...current].slice(0, 8));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Session generation failed.";
+      setSessionError(message);
+      setAgents(current => current.map(agent => agent.name === "Content Curator" ? { ...agent, status: "idle", task: "Generation failed · ready to retry" } : agent));
+      setLogs(current => [`Content Curator failed · ${message}`, ...current].slice(0, 8));
+    }
+  };
+
   const handleLogin = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!loginEmail.trim() || !loginPassword) {
@@ -289,7 +315,8 @@ export function WisePrototype() {
         {active === "Speakers" && (
           <SpeakersView speakers={speakerRecords} filter={speakerFilter} setFilter={setSpeakerFilter} status={agents.find(agent => agent.name === "Talent Scout")?.status ?? "idle"} error={speakerError} onStageChange={(name, stage) => { setSpeakerRecords(current => current.map(speaker => speaker.name === name ? { ...speaker, stage } : speaker)); setLogs(current => [`Speaker Lead moved ${name} to ${stage}`, ...current].slice(0, 5)); }} onRun={runGlobalDiscovery}/>
         )}
-        {active === "Content" && <ContentView count={sessionCount} speakers={speakerRecords} topics={sessionTopics} setTopics={setSessionTopics} onRun={() => { setSessionCount(value => value + 1); runAgent("Content Curator", "Content Curator drafted “From Evidence to Adoption” session"); }}/>} 
+        {active === "Content" && <ContentView count={sessionCount} speakers={speakerRecords} topics={sessionTopics} setTopics={setSessionTopics} onRun={runSessionGeneration}/>}
+        {active === "Content" && <SessionIdeaLibrary ideas={sessionIdeas} status={agents.find(agent => agent.name === "Content Curator")?.status ?? "idle"} error={sessionError} onRetry={runSessionGeneration} onAdd={idea => setSessionTopics(current => current.some(topic => topic.title === idea.title) ? current : [...current, { ...idea, id: `topic-${Date.now()}` }])}/>}
         {active === "Content" && <ProgramBuilder/>}
         {active === "Planning" && <TimelineView/>}
         {active === "Risks" && <RiskView/>}
@@ -346,6 +373,18 @@ function ContentView({ count, speakers, topics, setTopics, onRun }: { count:numb
   const assignSpeaker = () => { if (!selectedTopicId||!selectedSpeaker) return; setTopics(current=>current.map(topic=>topic.id===selectedTopicId?{...topic,speaker:selectedSpeaker}:topic)); };
   const placeSession = () => { if (!selectedTopicId||!selectedTime||!selectedLocation||!activeTopic?.speaker) return; setTopics(current=>current.map(topic=>topic.id===selectedTopicId?{...topic,time:selectedTime,location:selectedLocation}:topic)); };
   return <><PageHead eyebrow="Stage 03 · Content curation" title="Shape ideas into a coherent summit." copy="Translate strategy and speaker expertise into sessions, tracks, and measurable audience outcomes." action="Generate session" onAction={onRun}/><section className="content-stats"><article><small>Sessions defined</small><strong>{count+topics.length}/20</strong></article><article><small>Speakers assigned</small><strong>{topics.filter(topic=>topic.speaker).length+11}/18</strong></article><article><small>Learning outcomes</small><strong>86%</strong></article><article><small>Scheduled topics</small><strong>{topics.filter(topic=>topic.time).length}</strong></article></section><section className="session-workflow"><div className="workflow-heading"><span>Session workflow</span><h2>Topic to timetable</h2><p>Complete each step in order. Accepted speakers become available for assignment.</p></div><div className="workflow-steps"><fieldset><legend><span>1</span>Create topic</legend><label>Session topic<input value={topicTitle} onChange={event=>setTopicTitle(event.target.value)} placeholder="e.g. Learning beyond the classroom"/></label><label>Track<select value={track} onChange={event=>setTrack(event.target.value)}>{["Policy","Innovation","Global outlook","Roundtable","Workshop","Partner session"].map(option=><option key={option}>{option}</option>)}</select></label><button onClick={addTopic} disabled={!topicTitle.trim()}>Add topic</button></fieldset><fieldset><legend><span>2</span>Choose topic</legend><label>Draft topic<select value={selectedTopicId} onChange={event=>{setSelectedTopicId(event.target.value);setSelectedSpeaker("");}}><option value="">Select a topic</option>{topics.map(topic=><option value={topic.id} key={topic.id}>{topic.title}</option>)}</select></label><div className="step-status">{activeTopic?<><b>{activeTopic.track}</b><span>{activeTopic.speaker?`Assigned to ${activeTopic.speaker}`:"Awaiting speaker"}</span></>:<span>Create or select a topic to continue</span>}</div></fieldset><fieldset><legend><span>3</span>Assign speaker</legend><label>Accepted speaker<select value={selectedSpeaker} onChange={event=>setSelectedSpeaker(event.target.value)} disabled={!selectedTopicId}><option value="">Select a speaker</option>{eligibleSpeakers.map(speaker=><option value={speaker.name} key={speaker.name}>{speaker.name} · {speaker.stage}</option>)}</select></label><button onClick={assignSpeaker} disabled={!selectedTopicId||!selectedSpeaker}>Assign speaker</button><small>{eligibleSpeakers.length} speakers currently eligible</small></fieldset><fieldset><legend><span>4</span>Place in programme</legend><label>Time slot<select value={selectedTime} onChange={event=>setSelectedTime(event.target.value)} disabled={!activeTopic?.speaker}><option value="">Select time</option>{slotTimes.map(time=><option key={time}>{time}</option>)}</select></label><label>Room<select value={selectedLocation} onChange={event=>setSelectedLocation(event.target.value)} disabled={!activeTopic?.speaker}><option value="">Select room</option>{programmeLocations.map(location=><option key={location}>{location}</option>)}</select></label><button onClick={placeSession} disabled={!activeTopic?.speaker||!selectedTime||!selectedLocation}>Add to timetable</button></fieldset></div></section><section className="programme-section"><div className="programme-heading"><div><span>Summit programme</span><h2>Day 1 · Thursday, 15 April 2027</h2><p>All times shown in Arabia Standard Time · Doha</p></div><div className="programme-key"><span><i className="key-plenary"/>Plenary</span><span><i className="key-session"/>Session</span><span><i className="key-workshop"/>Workshop</span></div></div><div className="programme-scroll"><div className="programme-grid programme-locations"><div className="programme-time-head"><Clock3 size={14}/> Time</div>{programmeLocations.map(location=><div key={location}>{location}</div>)}</div>{programmeRows.map((row,rowIndex)=><div className={`programme-grid programme-row ${row.type}`} key={`${row.label}-${row.time}`}><div className="programme-time"><b>{row.label}</b><span>{row.time}</span></div>{row.type==="break"?<div className="programme-break"><span>{row.label}</span><i/></div>:row.type==="plenary"?<button className="programme-plenary" onClick={()=>setSelectedSession(row.sessions![0])}><span>{row.sessions![0].track}</span><b>{row.sessions![0].title}</b><small>{row.sessions![0].status}</small></button>:row.sessions!.map((session,index)=>{const assignedTopic=topics.find(topic=>topic.time===row.time&&topic.location===programmeLocations[index]);const visibleSession:ProgrammeSession=assignedTopic?{title:assignedTopic.title,track:assignedTopic.track,owner:assignedTopic.speaker!,status:"Scheduled"}:count>4&&rowIndex===9&&index===5?generatedSession:session;return <button className={`programme-session track-${visibleSession.track.toLowerCase().replaceAll(" ","-")}`} key={`${row.time}-${index}`} onClick={()=>setSelectedSession(visibleSession)} aria-expanded={selectedSession?.title===visibleSession.title}><span>{visibleSession.track}</span><b>{visibleSession.title}</b><small>{visibleSession.status}</small></button>})}</div>)}</div></section>{selectedSession&&<aside className="session-brief" aria-live="polite"><div><span>Session brief</span><h2>{selectedSession.title}</h2></div><button aria-label="Close session brief" onClick={()=>setSelectedSession(null)}><X size={18}/></button><dl><div><dt>Format</dt><dd>{selectedSession.track}</dd></div><div><dt>Owner / speaker</dt><dd>{selectedSession.owner}</dd></div><div><dt>Status</dt><dd>{selectedSession.status}</dd></div><div><dt>Outcome</dt><dd>Connect evidence and participant insight to a practical next action.</dd></div></dl><button className="brief-action">Open full brief <ArrowRight size={15}/></button></aside>}<section className="schedule-insights"><article className="proto-panel curator-panel"><PanelTitle eyebrow="Curation intelligence" title="Coverage against strategy"/><div className="coverage-grid">{[["Evidence to adoption",88],["Policy & coalitions",74],["Innovation at scale",92],["Equity & opportunity",81]].map(([label,value]) => <div className="coverage" key={label as string}><span><b>{label}</b><em>{value}%</em></span><i><u style={{width:`${value}%`}}/></i></div>)}</div><div className="agent-recommendation"><Sparkles size={18}/><p><b>Content gap detected</b>Add one session connecting evidence, policy, and practical adoption.</p><button onClick={onRun}>Apply recommendation</button></div></article></section></>;
+}
+
+function SessionIdeaLibrary({ ideas, status, error, onRetry, onAdd }: { ideas: SessionIdea[]; status: AgentStatus; error: string; onRetry: () => void; onAdd: (idea: SessionIdea) => void }) {
+  const [filter, setFilter] = useState("All");
+  const tracks = ["All", "Policy", "Innovation", "Global outlook", "Roundtable", "Workshop", "Partner session"];
+  const visibleIdeas = ideas.filter(idea => filter === "All" || idea.track === filter);
+
+  if (status === "running") return <section className="session-idea-state" aria-live="polite"><Sparkles size={20}/><div><b>Generating 100 session ideas</b><p>The Content Curator is building four distinct editorial batches.</p></div></section>;
+  if (error) return <div className="strategy-error" role="alert"><AlertTriangle size={16}/><span>{error}</span><button onClick={onRetry}>Retry</button></div>;
+  if (ideas.length === 0) return null;
+
+  return <section className="session-idea-library"><header><div><span>Generated idea library</span><h2>{ideas.length} directions to explore</h2><p>Review the editorial options, then add promising ideas to the scheduling workflow.</p></div><div>{tracks.map(track => <button className={filter === track ? "active" : ""} key={track} onClick={() => setFilter(track)}>{track}</button>)}</div></header><div className="session-idea-grid">{visibleIdeas.map((idea, index) => <article key={idea.title}><span>{String(index + 1).padStart(2, "0")} · {idea.track}</span><h3>{idea.title}</h3><p>{idea.description}</p><button onClick={() => onAdd(idea)}><Plus size={14}/>Add to workflow</button></article>)}</div></section>;
 }
 
 function ModuleProfile({ active }: { active: Stage }) {

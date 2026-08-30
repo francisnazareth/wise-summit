@@ -89,6 +89,42 @@ def test_chat_reports_upstream_failure(client: tuple[TestClient, FakeCompletions
     assert response.json() == {"detail": "Model invocation failed"}
 
 
+def test_session_generation_returns_100_structured_ideas(
+    client: tuple[TestClient, FakeCompletions],
+) -> None:
+    test_client, _ = client
+    calls: list[dict[str, object]] = []
+
+    def create_response(**kwargs: object) -> object:
+        calls.append(kwargs)
+        batch_number = len(calls)
+        sessions = [
+            {
+                "title": f"Batch {batch_number} Session {index}",
+                "description": f"A practical exploration of education challenge {index}. Participants leave with an actionable next step.",
+                "track": "Innovation",
+            }
+            for index in range(25)
+        ]
+        return SimpleNamespace(
+            id=f"session-response-{batch_number}",
+            status="completed",
+            output_text=__import__("json").dumps({"sessions": sessions}),
+        )
+
+    fake_responses = SimpleNamespace(create=create_response)
+    app.dependency_overrides[get_responses_client] = lambda: SimpleNamespace(responses=fake_responses)
+
+    response = test_client.post("/api/sessions/generate", json={"theme": "Human Agency in the Age of AI"})
+
+    assert response.status_code == 200
+    assert len(response.json()["sessions"]) == 100
+    assert len({session["title"] for session in response.json()["sessions"]}) == 100
+    assert len(calls) == 4
+    assert all(call["reasoning"] == {"effort": "low"} for call in calls)
+    assert all(call["max_output_tokens"] == 9_000 for call in calls)
+
+
 def test_speaker_discovery_requires_web_search_and_regional_split(
     client: tuple[TestClient, FakeCompletions],
     caplog: pytest.LogCaptureFixture,
