@@ -3,6 +3,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
+import main
 from main import app, get_foundry_client, get_responses_client
 
 
@@ -22,6 +23,7 @@ class FakeCompletions:
 
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, FakeCompletions]:
+    main._speaker_cache = None
     completions = FakeCompletions()
     fake_client = SimpleNamespace(chat=SimpleNamespace(completions=completions))
     app.dependency_overrides[get_foundry_client] = lambda: fake_client
@@ -29,6 +31,7 @@ def client(monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, FakeCompletions
     with TestClient(app) as test_client:
         yield test_client, completions
     app.dependency_overrides.clear()
+    main._speaker_cache = None
 
 
 def test_health_does_not_require_foundry(client: tuple[TestClient, FakeCompletions]) -> None:
@@ -39,6 +42,15 @@ def test_health_does_not_require_foundry(client: tuple[TestClient, FakeCompletio
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
     assert completions.last_request is None
+
+
+def test_speaker_cache_is_empty_before_discovery(client: tuple[TestClient, FakeCompletions]) -> None:
+    test_client, _ = client
+
+    response = test_client.get("/api/speakers/cache")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "No speaker discovery is cached"}
 
 
 def test_chat_invokes_configured_deployment(client: tuple[TestClient, FakeCompletions]) -> None:
@@ -121,3 +133,7 @@ def test_speaker_discovery_requires_web_search_and_regional_split(
     assert len(response.json()["candidates"]) == 100
     assert "Foundry speaker response region=USA" in caplog.text
     assert '"USA Candidate 0"' in caplog.text
+
+    cached_response = test_client.get("/api/speakers/cache")
+    assert cached_response.status_code == 200
+    assert cached_response.json() == response.json()

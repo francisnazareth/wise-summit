@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Activity, AlertTriangle, ArrowLeft, ArrowRight, Bot, CalendarDays, Check, ChevronDown,
   CircleDollarSign, Clock3, FileBarChart, Globe2, LayoutDashboard, ListChecks,
@@ -157,6 +157,36 @@ export function WisePrototype() {
   const [strategyError, setStrategyError] = useState("");
   const [speakerError, setSpeakerError] = useState("");
 
+  const showDiscoveredSpeakers = (candidates: DiscoveredSpeaker[]) => {
+    setSpeakerRecords(candidates.map(candidate => ({
+      name: candidate.name,
+      role: candidate.role,
+      region: candidate.region,
+      score: candidate.score,
+      sourceUrl: candidate.source_url,
+      stage: "Identified",
+    })));
+    setSpeakerFilter("All");
+    setAgents(current => current.map(agent => agent.name === "Talent Scout" ? { ...agent, status: "complete", task: `${candidates.length} web-grounded candidates found` } : agent));
+  };
+
+  useEffect(() => {
+    if (active !== "Speakers") return;
+
+    const loadCachedSpeakers = async () => {
+      try {
+        const response = await fetch(`${strategyApiUrl}/api/speakers`);
+        if (response.status === 404) return;
+        const payload = await response.json() as { candidates?: DiscoveredSpeaker[] };
+        if (response.ok && payload.candidates) showDiscoveredSpeakers(payload.candidates);
+      } catch {
+        // The discovery button remains available when no cached session can be loaded.
+      }
+    };
+
+    void loadCachedSpeakers();
+  }, [active]);
+
   const runAgent = (name: string, result: string) => {
     setAgents(current => current.map(agent => agent.name === name ? { ...agent, status: "complete" } : agent));
     setLogs(current => [result, ...current].slice(0, 5));
@@ -214,16 +244,7 @@ export function WisePrototype() {
       if (!response.ok || !payload.candidates) throw new Error(payload.detail ?? "Global discovery did not return candidates.");
       const candidates = payload.candidates;
 
-      setSpeakerRecords(candidates.map(candidate => ({
-        name: candidate.name,
-        role: candidate.role,
-        region: candidate.region,
-        score: candidate.score,
-        sourceUrl: candidate.source_url,
-        stage: "Identified",
-      })));
-      setSpeakerFilter("All");
-      setAgents(current => current.map(agent => agent.name === "Talent Scout" ? { ...agent, status: "complete", task: `${candidates.length} web-grounded candidates found` } : agent));
+      showDiscoveredSpeakers(candidates);
       setLogs(current => [`Talent Scout found ${candidates.length} candidates with a 30 · 20 · 20 · 30 regional split`, ...current].slice(0, 8));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Global discovery failed.";

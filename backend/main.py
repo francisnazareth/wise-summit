@@ -3,6 +3,7 @@ import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
+from threading import Lock
 from typing import Annotated, Literal, Protocol
 
 from azure.identity import AzureCliCredential, ManagedIdentityCredential, get_bearer_token_provider
@@ -56,6 +57,10 @@ class SpeakerDiscoveryResponse(BaseModel):
         return self
 
 
+_speaker_cache: SpeakerDiscoveryResponse | None = None
+_speaker_cache_lock = Lock()
+
+
 class ChatCompletions(Protocol):
     def create(self, **kwargs: object) -> object: ...
 
@@ -100,7 +105,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins(),
     allow_credentials=False,
-    allow_methods=["POST"],
+    allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
 )
 
@@ -108,6 +113,15 @@ app.add_middleware(
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/api/speakers/cache", response_model=SpeakerDiscoveryResponse)
+@app.get("/api/speakers", response_model=SpeakerDiscoveryResponse)
+def cached_speakers() -> SpeakerDiscoveryResponse:
+    with _speaker_cache_lock:
+        if _speaker_cache is None:
+            raise HTTPException(status_code=404, detail="No speaker discovery is cached")
+        return _speaker_cache
 
 
 @app.post("/api/chat", response_model=ChatResponse)
@@ -143,6 +157,10 @@ def discover_speakers(
     deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT")
     if not deployment:
         raise HTTPException(status_code=503, detail="Model deployment is not configured")
+
+    global _speaker_cache
+    with _speaker_cache_lock:
+        _speaker_cache = None
 
     quotas = {"USA": 30, "Europe": 20, "Africa": 20, "Asia": 30}
 
@@ -220,7 +238,10 @@ Find real, living education, policy, technology, research, social-impact, or phi
         with ThreadPoolExecutor(max_workers=4) as executor:
             futures = [executor.submit(search_region, region, count) for region, count in quotas.items()]
             candidates = [candidate for future in futures for candidate in future.result()]
-        return SpeakerDiscoveryResponse(candidates=candidates)
+        result = SpeakerDiscoveryResponse(candidates=candidates)
+        with _speaker_cache_lock:
+            _speaker_cache = result
+        return result
     except (OpenAIError, OSError):
         logger.exception("Foundry speaker discovery failed")
         raise HTTPException(status_code=502, detail="Speaker web search failed") from None
