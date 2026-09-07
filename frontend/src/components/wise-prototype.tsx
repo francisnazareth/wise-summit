@@ -7,10 +7,10 @@ import {
   LogIn, LogOut, Menu, MessageSquareText, Network, Play, Plus, Search, ShieldAlert, Sparkles,
   Target, Users, WandSparkles, X,
 } from "lucide-react";
-import { LiveOperationsView, ReportsView, RiskView, TimelineView } from "./operational-views";
+import { BudgetView, LiveOperationsView, ReportsView, RiskView, StakeholdersView, TimelineView, VariationsView } from "./operational-views";
 import { ProgramBuilder } from "./program-builder";
 
-type Stage = "Overview" | "Programs" | "Strategy" | "Speakers" | "Content" | "Stakeholders" | "Planning" | "Budget" | "Risks" | "Approvals" | "Live Ops" | "Reports";
+type Stage = "Overview" | "Planning" | "Stakeholders" | "Strategy" | "Budget" | "Content" | "Speakers" | "Risks" | "Live Ops" | "Variations" | "Report";
 type AgentStatus = "complete" | "running" | "queued" | "idle";
 type SpeakerStage = "Identified" | "Invited" | "Accepted" | "Confirmed" | "Travel Planned" | "Ready";
 type SpeakerRecord = { name: string; role: string; region: string; stage: SpeakerStage; score: number; sourceUrl?: string };
@@ -20,24 +20,46 @@ type SessionIdea = { title: string; description: string; track: string };
 type ProgramRecord = { name: string; theme: string; location: string; attendees: string; speakers: string; budget: string; narrative: string; status: "Active" | "Planning" };
 type StrategyCandidate = { theme: string; territory: string };
 type StrategyOutput = {
+  countries: Array<{ country: string; signal: string; source_url: string }>;
+  conferences: Array<{ name: string; horizon: "Past" | "Future"; theme: string; source_url: string }>;
+  experts: Array<{ name: string; role: string; perspective: string; source_url: string }>;
+  summary: string;
   candidates: StrategyCandidate[];
   recommendedTheme: string;
   rationale: string;
   strategicFit: number;
   audienceResonance: number;
   contentExtensibility: number;
+  reflectionPrompts: string[];
   trace: string[];
 };
 
 const strategyApiUrl = process.env.NEXT_PUBLIC_API_URL ?? "https://app-wise-demo-api-58de9d.azurewebsites.net";
 
 const nav: Array<[Stage, typeof Activity]> = [
-  ["Overview", LayoutDashboard], ["Programs", CalendarDays], ["Strategy", Target], ["Speakers", Users], ["Content", MessageSquareText],
-  ["Stakeholders", Network], ["Planning", CalendarDays], ["Budget", CircleDollarSign], ["Risks", ShieldAlert],
-  ["Approvals", ListChecks], ["Live Ops", Activity], ["Reports", FileBarChart],
+  ["Overview", LayoutDashboard], ["Planning", CalendarDays], ["Stakeholders", Network], ["Strategy", Target],
+  ["Budget", CircleDollarSign], ["Content", MessageSquareText], ["Speakers", Users], ["Risks", ShieldAlert],
+  ["Live Ops", Activity], ["Variations", ListChecks], ["Report", FileBarChart],
 ];
+const approvalChannels: Record<Stage, { owner: string; approvers: string; gate: string }> = {
+  Overview: { owner: "Summit Director", approvers: "Executive leadership", gate: "Monthly portfolio review" },
+  Planning: { owner: "PMO Lead", approvers: "EMC · Speaker Lead · QNCC", gate: "Integrated plan baseline" },
+  Stakeholders: { owner: "Stakeholder Lead", approvers: "Executive Director · Relationship owners", gate: "Engagement plan sign-off" },
+  Strategy: { owner: "Strategy Lead", approvers: "Steering Committee", gate: "Theme and narrative approval" },
+  Budget: { owner: "Finance Lead", approvers: "Executive Director · Finance Committee", gate: "Spend authority and change control" },
+  Content: { owner: "Content Director", approvers: "Working Groups · Steering Committee · HH", gate: "Editorial approval sequence" },
+  Speakers: { owner: "Speaker Lead", approvers: "Content Director · Protocol · Executive Director", gate: "Invitation, contract, and travel clearance" },
+  Risks: { owner: "Risk Owner", approvers: "Operations Director · Executive sponsor", gate: "Mitigation acceptance" },
+  "Live Ops": { owner: "Operations Director", approvers: "Command Center · Executive on duty", gate: "Escalation authority" },
+  Variations: { owner: "PMO Lead", approvers: "Workstream owner · Finance · Executive sponsor", gate: "Planning and budget impact approval" },
+  Report: { owner: "Insights Lead", approvers: "Executive Director · Steering Committee", gate: "Publication approval" },
+};
 const themes = ["Learning to Flourish", "Innovating Education for a Changing World", "Evidence Into Action", "Human Agency in the Age of AI", "Learning Systems That Adapt"];
 const initialStrategyOutput: StrategyOutput = {
+  countries: [],
+  conferences: [],
+  experts: [],
+  summary: "Run the Strategy Agent to scout the global education discussion, conference landscape, and expert perspectives.",
   candidates: themes.map((theme, index) => ({
     theme,
     territory: index === 0 ? "Learning · wellbeing · human potential" : "Agent-generated strategic territory",
@@ -47,20 +69,9 @@ const initialStrategyOutput: StrategyOutput = {
   strategicFit: 96,
   audienceResonance: 91,
   contentExtensibility: 88,
+  reflectionPrompts: [],
   trace: [],
 };
-
-function parseStrategyOutput(message: string): StrategyOutput {
-  const firstBrace = message.indexOf("{");
-  const lastBrace = message.lastIndexOf("}");
-  if (firstBrace < 0 || lastBrace <= firstBrace) throw new Error("The model did not return strategy JSON.");
-
-  const output = JSON.parse(message.slice(firstBrace, lastBrace + 1)) as StrategyOutput;
-  if (!Array.isArray(output.candidates) || output.candidates.length === 0 || !output.recommendedTheme || !output.rationale) {
-    throw new Error("The model returned an incomplete strategy.");
-  }
-  return output;
-}
 const initialAgents: Array<{ name: string; task: string; status: AgentStatus }> = [
   { name: "Strategy Agent", task: "Theme evidence synthesis", status: "complete" },
   { name: "Talent Scout", task: "Ready for global speaker discovery", status: "idle" },
@@ -136,7 +147,7 @@ const programmeRows: ProgrammeRow[] = [
   { label: "Plenary", time: "16:20–17:00", type: "plenary", sessions: [{ title: "Closing Plenary: Commitments for 2027", track: "Plenary", owner: "Strategy Agent", status: "Editorial review" }] },
 ];
 const profiles = ["Executive Director", "Strategy Lead", "Speaker Lead", "Content Curator", "Operations Lead"];
-const initialPrograms: ProgramRecord[] = [{ name: "WISE Summit 2027", theme: "Innovating Education for a Changing World", location: "Doha", attendees: "3,000", speakers: "150", budget: "$5M", narrative: "A global operating environment for summit strategy, content, and delivery.", status: "Active" }];
+const initialPrograms: ProgramRecord[] = [{ name: "WISE Summit 2027", theme: "Innovating Education for a Changing World", location: "Doha", attendees: "3,000", speakers: "150", budget: "$10M", narrative: "A global operating environment for summit strategy, content, and delivery.", status: "Active" }];
 
 export function WisePrototype() {
   const [loggedIn, setLoggedIn] = useState(false);
@@ -197,18 +208,16 @@ export function WisePrototype() {
     setAgents(current => current.map(agent => agent.name === "Strategy Agent" ? { ...agent, status: "running", task: "Synthesizing live summit signals" } : agent));
     setLogs(current => ["Strategy Agent started audience, archive, market, and impact synthesis", ...current].slice(0, 8));
 
-    const prompt = `You are the WISE Summit Strategy Agent. Create a fresh strategic direction for WISE Summit 2027 in Doha. The summit should advance global education through evidence, innovation, human agency, and practical impact. Return JSON only with this exact shape: {"candidates":[{"theme":"short theme title","territory":"short strategic territory"}],"recommendedTheme":"one candidate theme","rationale":"a concise two-sentence strategy suitable for leadership","strategicFit":95,"audienceResonance":90,"contentExtensibility":88,"trace":["short synthesis step","short synthesis step","short synthesis step"]}. Include exactly four distinct candidates. Scores must be integers from 0 to 100. Do not reuse the current theme "${selectedTheme}".`;
-
     try {
-      const response = await fetch(`${strategyApiUrl}/api/chat`, {
+      const response = await fetch(`${strategyApiUrl}/api/theme/research`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: prompt }),
+        body: JSON.stringify({ current_theme: selectedTheme }),
       });
-      const payload = await response.json() as { message?: string; detail?: string };
-      if (!response.ok || !payload.message) throw new Error(payload.detail ?? "The Strategy Agent did not return a result.");
+      const payload = await response.json() as StrategyOutput & { detail?: string };
+      if (!response.ok || !payload.recommendedTheme) throw new Error(payload.detail ?? "The Strategy Agent did not return a result.");
 
-      const output = parseStrategyOutput(payload.message);
+      const output = payload;
       setStrategyOutput(output);
       setSelectedTheme(output.recommendedTheme);
       setAgents(current => current.map(agent => agent.name === "Strategy Agent" ? { ...agent, status: "complete", task: `${output.candidates.length} strategic themes generated` } : agent));
@@ -306,23 +315,28 @@ export function WisePrototype() {
     <div className="proto-main">
       <header className="proto-topbar"><button className="proto-menu" onClick={() => setMenuOpen(true)} aria-label="Open menu"><Menu size={19}/></button><div className="proto-search"><Search size={16}/><span>Search the summit operation</span></div><div className="role-switcher"><span>Viewing as</span><select aria-label="Operational profile" value={role} onChange={event => setRole(event.target.value)}>{profiles.map(profile => <option key={profile}>{profile}</option>)}</select><ChevronDown size={14}/></div></header>
       <main className="proto-content">
-        <div className="process-rail">{["Strategy", "Speakers", "Content", "Planning", "Execution"].map((step, index) => <button key={step} className={active === step || (active === "Overview" && index === 0) ? "current" : index < 1 ? "done" : ""} onClick={() => index < 3 && setActive(step as Stage)}><span>{index < 1 ? <Check size={13}/> : index + 1}</span><b>{step}</b>{index < 4 && <i/>}</button>)}</div>
+        <div className="process-rail">{["Planning", "Stakeholders", "Strategy", "Content", "Live Ops"].map((step, index) => <button key={step} className={active === step || (active === "Overview" && index === 0) ? "current" : ""} onClick={() => setActive(step as Stage)}><span>{index + 1}</span><b>{step}</b>{index < 4 && <i/>}</button>)}</div>
+        <ApprovalChannel stage={active}/>
         {active === "Overview" && <ExecutiveCenter setActive={setActive}/>} 
-        {active === "Programs" && <ProgramsView programs={programs} onCreate={program => { setPrograms(current => [...current.filter(item => item.name !== program.name), program]); setLogs(current => [`Program Agent created ${program.name} operating environment`, ...current].slice(0, 5)); }}/>} 
         {active === "Strategy" && (
           <StrategyView output={strategyOutput} selectedTheme={selectedTheme} setSelectedTheme={setSelectedTheme} status={agents.find(agent => agent.name === "Strategy Agent")?.status ?? "idle"} error={strategyError} onRun={runStrategyAgent} onApprove={() => setActive("Speakers")}/>
         )}
+        {active === "Strategy" && <ThemeResearchBoard output={strategyOutput}/>} 
         {active === "Speakers" && (
           <SpeakersView speakers={speakerRecords} filter={speakerFilter} setFilter={setSpeakerFilter} status={agents.find(agent => agent.name === "Talent Scout")?.status ?? "idle"} error={speakerError} onStageChange={(name, stage) => { setSpeakerRecords(current => current.map(speaker => speaker.name === name ? { ...speaker, stage } : speaker)); setLogs(current => [`Speaker Lead moved ${name} to ${stage}`, ...current].slice(0, 5)); }} onRun={runGlobalDiscovery}/>
         )}
+        {active === "Speakers" && <SpeakerOperationsGovernance speakers={speakerRecords}/>} 
         {active === "Content" && <ContentView count={sessionCount} speakers={speakerRecords} topics={sessionTopics} setTopics={setSessionTopics} onRun={runSessionGeneration}/>}
         {active === "Content" && <SessionIdeaLibrary ideas={sessionIdeas} status={agents.find(agent => agent.name === "Content Curator")?.status ?? "idle"} error={sessionError} onRetry={runSessionGeneration} onAdd={idea => setSessionTopics(current => current.some(topic => topic.title === idea.title) ? current : [...current, { ...idea, id: `topic-${Date.now()}` }])}/>}
         {active === "Content" && <ProgramBuilder/>}
         {active === "Planning" && <TimelineView/>}
+        {active === "Stakeholders" && <StakeholdersView/>}
+        {active === "Budget" && <BudgetView/>}
         {active === "Risks" && <RiskView/>}
         {active === "Live Ops" && <LiveOperationsView/>}
-        {active === "Reports" && <ReportsView/>}
-        {!(["Overview", "Programs", "Strategy", "Speakers", "Content", "Planning", "Risks", "Live Ops", "Reports"] as Stage[]).includes(active) && <ModuleProfile active={active}/>}
+        {active === "Variations" && <VariationsView/>}
+        {active === "Report" && <ReportsView/>}
+        {!(["Overview", "Strategy", "Speakers", "Content", "Planning", "Stakeholders", "Budget", "Risks", "Live Ops", "Variations", "Report"] as Stage[]).includes(active) && <ModuleProfile active={active}/>}
       </main>
     </div>
     <AgentRail agents={agents} logs={logs}/>
@@ -331,14 +345,14 @@ export function WisePrototype() {
 }
 
 function ExecutiveCenter({ setActive }: { setActive: (stage: Stage) => void }) {
-  const kpis = [["Summit Health Score", "82%", "+6% this week"], ["Days to Event", "231", "15 Apr 2027 · Doha"], ["Budget", "$270k", "68% committed"], ["Sponsors", "8", "2 pending assets"], ["Speakers", "11/18", "4 in outreach"], ["Risks", "6", "2 high impact"]];
+  const kpis = [["Summit Health Score", "82%", "+6% this week"], ["Days to Event", "231", "15 Apr 2027 · Doha"], ["Budget", "$10M", "$6.8M committed"], ["Sponsors", "8", "2 pending assets"], ["Speakers", "11/18", "4 in outreach"], ["Risks", "6", "2 high impact"]];
     return <><section className="executive-hero"><div><span>Executive command center</span><h1>WISE Summit 2027<br/>Command Center</h1><p>Live readiness across strategy, global education leaders, content, and summit operations.</p></div><small>WISE Innovation · Building the future of education</small></section><div className="exec-alert"><span/><b>Overall summit health: Strong</b><p>Three agent interventions are running across the critical path.</p><button onClick={() => setActive("Live Ops")}>Open live operations <ArrowRight size={14}/></button></div><section className="exec-kpis">{kpis.map(([label,value,note], index) => <article key={label}><span className={`metric-signal signal-${index}`}/><small>{label}</small><strong>{value}</strong><p>{note}</p></article>)}</section><section className="exec-grid"><article className="proto-panel timeline-panel"><PanelTitle eyebrow="Readiness against timeline" title="Summit critical path"/><div className="timeline-bars">{[["Strategy & theme",94],["Global speakers",72],["Content & sessions",68],["Production & venue",81],["Audience & partners",76]].map(([label,value]) => <div key={label as string}><span><b>{label}</b><em>{value}%</em></span><i><u style={{width:`${value}%`}}/></i></div>)}</div></article><article className="proto-panel stage-panel"><PanelTitle eyebrow="First three stages" title="Action center"/>{[["Strategy", "Theme approved", "94%"],["Speakers", "7 need action", "72%"],["Content", "6 slots open", "68%"]].map(([stage,note,value], index) => <button key={stage} onClick={() => setActive(stage as Stage)}><span>{index+1}</span><div><b>{stage}</b><small>{note}</small></div><strong>{value}</strong><ArrowRight size={16}/></button>)}</article></section></>;
 }
 
 function ProgramsView({ programs, onCreate }: { programs: ProgramRecord[]; onCreate: (program: ProgramRecord) => void }) {
   const [creating, setCreating] = useState(false);
   const [createdName, setCreatedName] = useState("");
-  const [draft, setDraft] = useState<ProgramRecord>({ name: "WISE Summit 2028", theme: "AI for Sustainable Development", location: "Doha", attendees: "3,000", speakers: "150", budget: "$5M", narrative: "Instead of spending weeks preparing concept notes and planning documents, the system creates a structured operating environment immediately.", status: "Planning" });
+  const [draft, setDraft] = useState<ProgramRecord>({ name: "WISE Summit 2028", theme: "AI for Sustainable Development", location: "Doha", attendees: "3,000", speakers: "150", budget: "$10M", narrative: "Instead of spending weeks preparing concept notes and planning documents, the system creates a structured operating environment immediately.", status: "Planning" });
   const update = (field: keyof ProgramRecord, value: string) => setDraft(current => ({ ...current, [field]: value }));
   const submit = (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); onCreate(draft); setCreatedName(draft.name); setCreating(false); };
 
@@ -396,9 +410,31 @@ function SessionIdeaLibrary({ ideas, status, error, onRetry, onAdd }: { ideas: S
   return <section className="session-idea-library"><header><div><span>Generated idea library</span><h2>{ideas.length} directions to explore</h2><p>Review the editorial options, then add promising ideas to the scheduling workflow.</p></div><div>{tracks.map(track => <button className={filter === track ? "active" : ""} key={track} onClick={() => setFilter(track)}>{track}</button>)}</div></header><div className="session-idea-grid">{visibleIdeas.map((idea, index) => <article key={idea.title}><span>{String(index + 1).padStart(2, "0")} · {idea.track}</span><h3>{idea.title}</h3><p>{idea.description}</p><button onClick={() => onAdd(idea)}><Plus size={14}/>Add to workflow</button></article>)}</div></section>;
 }
 
+function ThemeResearchBoard({ output }: { output: StrategyOutput }) {
+  if (output.countries.length === 0) return <section className="theme-research-empty"><Globe2 size={18}/><div><b>Global theme research is ready to run</b><p>Country signals, conference themes, expert voices, and reflection prompts will appear here with public sources.</p></div></section>;
+  return <section className="theme-research"><header><div><span>Web-grounded evidence</span><h2>Global education conversation</h2></div><small>{output.countries.length + output.conferences.length + output.experts.length} sourced signals</small></header><blockquote>{output.summary}</blockquote><div className="theme-evidence-grid"><article><h3>Where discussion is active</h3>{output.countries.map(item=><a key={item.country} href={item.source_url} target="_blank" rel="noreferrer"><b>{item.country}</b><span>{item.signal}</span></a>)}</article><article><h3>Conference themes</h3>{output.conferences.map(item=><a key={`${item.name}-${item.horizon}`} href={item.source_url} target="_blank" rel="noreferrer"><b>{item.name} · {item.horizon}</b><span>{item.theme}</span></a>)}</article><article><h3>Expert voices</h3>{output.experts.map(item=><a key={item.name} href={item.source_url} target="_blank" rel="noreferrer"><b>{item.name} · {item.role}</b><span>{item.perspective}</span></a>)}</article></div><article className="reflection-prompts"><span>For Steering Committee and team</span><h3>Posts for reflection</h3>{output.reflectionPrompts.map((prompt,index)=><p key={prompt}><b>{String(index+1).padStart(2,"0")}</b>{prompt}</p>)}</article></section>;
+}
+
+function SpeakerOperationsGovernance({ speakers }: { speakers: SpeakerRecord[] }) {
+  const confirmed = speakers.filter(speaker=>["Confirmed","Travel Planned","Ready"].includes(speaker.stage)).length;
+  const travelReady = speakers.filter(speaker=>["Travel Planned","Ready"].includes(speaker.stage)).length;
+  const operations = [
+    ["Flights", `${travelReady}/${confirmed || "-"}`, "Speaker Services", "Itinerary approval before ticketing"],
+    ["Hotel booking", `${travelReady}/${confirmed || "-"}`, "Hospitality Lead", "Room block release after travel approval"],
+    ["Contracts", `${confirmed}/${speakers.length}`, "Legal + Speaker Lead", "Terms, honoraria, and signature clearance"],
+    ["Final approval", `${speakers.filter(speaker=>speaker.stage==="Ready").length}/${speakers.length}`, "Executive Director", "Content, protocol, contract, and travel complete"],
+  ];
+  return <section className="speaker-operations proto-panel"><header><div><span>Speaker operations</span><h2>Logistics, contracts, and governance</h2></div><small>Speaker Lead accountable · weekly approval review</small></header><div>{operations.map(([area,value,owner,gate])=><article key={area}><b>{area}</b><strong>{value}</strong><p>{gate}</p><footer><span>Owner</span>{owner}</footer></article>)}</div><aside><ListChecks size={16}/><p><b>Approval sequence</b><span>Speaker Lead → Content Director → Protocol → Executive Director</span></p><em>Escalate exceptions to the Steering Committee</em></aside></section>;
+}
+
 function ModuleProfile({ active }: { active: Stage }) {
-  const data: Record<string,[string,string,string][]> = { Stakeholders:[["Active relationships","148","12 need follow-up"],["Sponsors","8","2 pending assets"],["VIPs","24","91% confirmed"]], Planning:[["Milestones","36","29 on track"],["Open tasks","47","8 overdue"],["Critical path","3","1 due today"]], Budget:[["Approved","$270k","FY26 allocation"],["Committed","$184k","68% utilized"],["Variance","+$8.4k","Production watch"]], Risks:[["Open risks","6","2 high impact"],["Mitigated","18","This cycle"],["Agent flags","3","Need owner action"]], Approvals:[["Pending","7","3 due today"],["Approved","42","This cycle"],["Avg. cycle","1.8d","-0.4d trend"]], "Live Ops":[["Workstreams","9","7 green"],["Agent runs","12","5 active"],["Escalations","3","1 executive"]], Reports:[["Executive briefs","6","Latest today"],["Data sources","14","All synchronized"],["Exports","28","This month"]] };
+  const data: Record<string,[string,string,string][]> = { Stakeholders:[["Active relationships","148","12 need follow-up"],["Sponsors","8","2 pending assets"],["VIPs","24","91% confirmed"]], Planning:[["Milestones","36","29 on track"],["Open tasks","47","8 overdue"],["Critical path","3","1 due today"]], Budget:[["Approved","$10M","Summit baseline"],["Committed","$6.8M","68% utilized"],["Contingency","$800k","8% controlled reserve"]], Variations:[["Open requests","5","3 affect milestones"],["Pending approval","2","$240k exposure"],["Implemented","14","All linked to plan"]] };
   return <><PageHead eyebrow="Operational module" title={active} copy={`High-level ${active.toLowerCase()} profile with shared progress and agent observability.`}/><section className="module-cards">{(data[active]||[]).map(([label,value,note])=><article key={label}><small>{label}</small><strong>{value}</strong><p>{note}</p></article>)}</section><article className="proto-panel module-placeholder"><Network size={30}/><h2>{active} workspace</h2><p>This module is connected to the shared summit graph. Agent outputs, approvals, and exceptions from the first three stages appear here automatically.</p><button>Open module profile <ArrowRight size={15}/></button></article></>;
+}
+
+function ApprovalChannel({ stage }: { stage: Stage }) {
+  const channel = approvalChannels[stage];
+  return <section className="approval-channel" aria-label={`${stage} approval channel`}><div><ListChecks size={17}/><span>Approval channel</span><b>{channel.gate}</b></div><dl><div><dt>Accountable owner</dt><dd>{channel.owner}</dd></div><div><dt>Approvers</dt><dd>{channel.approvers}</dd></div><div><dt>Status</dt><dd><i/>In governance</dd></div></dl></section>;
 }
 
 function AgentRail({ agents, logs }: { agents: typeof initialAgents; logs: string[] }) { const running=agents.filter(agent=>agent.status==="running").length; return <aside className="agent-rail"><header><span><Activity size={17}/></span><div><b>Agent observability</b><small>{agents.length} agents · {running} running</small></div><i/></header><section><label>Orchestration graph</label>{agents.map(agent=><div className={`agent-run ${agent.status}`} key={agent.name}><span className={agent.status}/><div><b>{agent.name}</b><small>{agent.task}</small></div><em>{agent.status}</em></div>)}</section><section className="run-log"><label>Live trace</label>{logs.map((log,index)=><div key={`${index}-${log}`}><time>{index===0?"now":`${index*4}m`}</time><p>{log}</p></div>)}</section><footer><Clock3 size={14}/> Last synchronized just now</footer></aside>; }

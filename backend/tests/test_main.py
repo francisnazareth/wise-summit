@@ -125,6 +125,41 @@ def test_session_generation_returns_100_structured_ideas(
     assert all(call["max_output_tokens"] == 9_000 for call in calls)
 
 
+def test_theme_research_uses_web_search_and_returns_governance_material(
+    client: tuple[TestClient, FakeCompletions],
+) -> None:
+    test_client, _ = client
+    payload = {
+        "countries": [{"country": f"Country {index}", "signal": "Education reform discussion", "source_url": "https://example.com/country"} for index in range(4)],
+        "conferences": [{"name": f"Conference {index}", "horizon": "Future" if index % 2 else "Past", "theme": "Learning systems", "source_url": "https://example.com/conference"} for index in range(4)],
+        "experts": [{"name": f"Expert {index}", "role": "Education leader", "perspective": "Human agency matters", "source_url": "https://example.com/expert"} for index in range(4)],
+        "summary": "Global debate is moving from access alone toward resilient, human-centered learning systems.",
+        "candidates": [{"theme": f"Theme {index}", "territory": "Systems and human agency"} for index in range(4)],
+        "recommendedTheme": "Theme 0",
+        "rationale": "The evidence supports a practical systems theme.",
+        "strategicFit": 95,
+        "audienceResonance": 91,
+        "contentExtensibility": 88,
+        "reflectionPrompts": ["What should WISE challenge?", "Whose voice is missing?", "What action should follow?"],
+        "trace": ["Mapped country signals", "Reviewed conferences", "Synthesized expert voices"],
+    }
+    response_item = SimpleNamespace(type="web_search_call")
+    calls: list[dict[str, object]] = []
+
+    def create_response(**kwargs: object) -> object:
+        calls.append(kwargs)
+        return SimpleNamespace(id="theme-response", output=[response_item], output_text=__import__("json").dumps(payload))
+
+    app.dependency_overrides[get_responses_client] = lambda: SimpleNamespace(responses=SimpleNamespace(create=create_response))
+
+    response = test_client.post("/api/theme/research", json={"current_theme": "Existing theme"})
+
+    assert response.status_code == 200
+    assert response.json()["reflectionPrompts"] == payload["reflectionPrompts"]
+    assert calls[0]["tools"] == [{"type": "web_search"}]
+    assert calls[0]["text"]["format"]["name"] == "theme_research"
+
+
 def test_speaker_discovery_requires_web_search_and_regional_split(
     client: tuple[TestClient, FakeCompletions],
     caplog: pytest.LogCaptureFixture,

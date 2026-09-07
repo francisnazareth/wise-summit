@@ -78,6 +78,50 @@ class SessionGenerationResponse(BaseModel):
         return self
 
 
+class ThemeResearchRequest(BaseModel):
+    current_theme: str = Field(min_length=1, max_length=500)
+
+
+class ThemeCandidate(BaseModel):
+    theme: str
+    territory: str
+
+
+class CountrySignal(BaseModel):
+    country: str
+    signal: str
+    source_url: str
+
+
+class ConferenceSignal(BaseModel):
+    name: str
+    horizon: Literal["Past", "Future"]
+    theme: str
+    source_url: str
+
+
+class ExpertSignal(BaseModel):
+    name: str
+    role: str
+    perspective: str
+    source_url: str
+
+
+class ThemeResearchResponse(BaseModel):
+    countries: list[CountrySignal] = Field(min_length=4, max_length=8)
+    conferences: list[ConferenceSignal] = Field(min_length=4, max_length=8)
+    experts: list[ExpertSignal] = Field(min_length=4, max_length=8)
+    summary: str
+    candidates: list[ThemeCandidate] = Field(min_length=4, max_length=4)
+    recommendedTheme: str
+    rationale: str
+    strategicFit: int = Field(ge=0, le=100)
+    audienceResonance: int = Field(ge=0, le=100)
+    contentExtensibility: int = Field(ge=0, le=100)
+    reflectionPrompts: list[str] = Field(min_length=3, max_length=5)
+    trace: list[str] = Field(min_length=3, max_length=6)
+
+
 _speaker_cache: SpeakerDiscoveryResponse | None = None
 _speaker_cache_lock = Lock()
 
@@ -168,6 +212,64 @@ def chat(
     if not content:
         raise HTTPException(status_code=502, detail="Model returned an empty response")
     return ChatResponse(message=content)
+
+
+@app.post("/api/theme/research", response_model=ThemeResearchResponse)
+def research_theme(
+    request: ThemeResearchRequest,
+    client: Annotated[OpenAI, Depends(get_responses_client)],
+) -> ThemeResearchResponse:
+    deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT")
+    if not deployment:
+        raise HTTPException(status_code=503, detail="Model deployment is not configured")
+
+    prompt = f"""Research a strategic theme for WISE Summit 2027 in Doha using current public web sources.
+Map the countries where global discussion about education is most active and identify the specific discussion in each.
+Review both past and announced future education conferences and their themes.
+Identify thought leaders and experts whose public work reveals important perspectives.
+Synthesize the evidence, propose exactly four concise theme candidates, recommend one, and write three to five questions for reflection with the Steering Committee and WISE team.
+Do not reuse the current theme: {request.current_theme}
+Every country, conference, and expert item must include a public source URL that supports the claim."""
+    schema = {
+        "type": "object",
+        "properties": {
+            "countries": {"type": "array", "minItems": 4, "maxItems": 8, "items": {"type": "object", "properties": {"country": {"type": "string"}, "signal": {"type": "string"}, "source_url": {"type": "string"}}, "required": ["country", "signal", "source_url"], "additionalProperties": False}},
+            "conferences": {"type": "array", "minItems": 4, "maxItems": 8, "items": {"type": "object", "properties": {"name": {"type": "string"}, "horizon": {"type": "string", "enum": ["Past", "Future"]}, "theme": {"type": "string"}, "source_url": {"type": "string"}}, "required": ["name", "horizon", "theme", "source_url"], "additionalProperties": False}},
+            "experts": {"type": "array", "minItems": 4, "maxItems": 8, "items": {"type": "object", "properties": {"name": {"type": "string"}, "role": {"type": "string"}, "perspective": {"type": "string"}, "source_url": {"type": "string"}}, "required": ["name", "role", "perspective", "source_url"], "additionalProperties": False}},
+            "summary": {"type": "string"},
+            "candidates": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "object", "properties": {"theme": {"type": "string"}, "territory": {"type": "string"}}, "required": ["theme", "territory"], "additionalProperties": False}},
+            "recommendedTheme": {"type": "string"},
+            "rationale": {"type": "string"},
+            "strategicFit": {"type": "integer", "minimum": 0, "maximum": 100},
+            "audienceResonance": {"type": "integer", "minimum": 0, "maximum": 100},
+            "contentExtensibility": {"type": "integer", "minimum": 0, "maximum": 100},
+            "reflectionPrompts": {"type": "array", "minItems": 3, "maxItems": 5, "items": {"type": "string"}},
+            "trace": {"type": "array", "minItems": 3, "maxItems": 6, "items": {"type": "string"}},
+        },
+        "required": ["countries", "conferences", "experts", "summary", "candidates", "recommendedTheme", "rationale", "strategicFit", "audienceResonance", "contentExtensibility", "reflectionPrompts", "trace"],
+        "additionalProperties": False,
+    }
+
+    try:
+        response = client.responses.create(
+            model=deployment,
+            tools=[{"type": "web_search"}],
+            input=prompt,
+            text={"format": {"type": "json_schema", "name": "theme_research", "strict": True, "schema": schema}},
+            reasoning={"effort": "low"},
+            max_output_tokens=8_000,
+        )
+        if not any(item.type == "web_search_call" for item in response.output):
+            raise ValueError("The model did not perform a web search")
+        result = ThemeResearchResponse.model_validate_json(response.output_text)
+        logger.info("Foundry theme research response_id=%s countries=%s conferences=%s experts=%s", response.id, len(result.countries), len(result.conferences), len(result.experts))
+        return result
+    except (OpenAIError, OSError):
+        logger.exception("Foundry theme research failed")
+        raise HTTPException(status_code=502, detail="Theme web research failed") from None
+    except ValueError:
+        logger.exception("Foundry returned invalid theme research")
+        raise HTTPException(status_code=502, detail="Model returned invalid theme research") from None
 
 
 @app.post("/api/sessions/generate", response_model=SessionGenerationResponse)
