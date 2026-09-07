@@ -160,6 +160,70 @@ def test_theme_research_uses_web_search_and_returns_governance_material(
     assert calls[0]["text"]["format"]["name"] == "theme_research"
 
 
+def test_theme_research_rejects_response_without_web_search(
+    client: tuple[TestClient, FakeCompletions],
+) -> None:
+    test_client, _ = client
+    fake_response = SimpleNamespace(id="theme-response", output=[], output_text="{}")
+    app.dependency_overrides[get_responses_client] = lambda: SimpleNamespace(
+        responses=SimpleNamespace(create=lambda **_: fake_response)
+    )
+
+    response = test_client.post("/api/theme/research", json={"current_theme": "Existing theme"})
+
+    assert response.status_code == 502
+    assert response.json() == {"detail": "Model returned invalid theme research"}
+
+
+def test_theme_research_rejects_inconsistent_recommendation(
+    client: tuple[TestClient, FakeCompletions],
+) -> None:
+    test_client, _ = client
+    payload = {
+        "countries": [{"country": f"Country {index}", "signal": "Education reform discussion", "source_url": "https://example.com/country"} for index in range(4)],
+        "conferences": [{"name": f"Conference {index}", "horizon": "Future" if index % 2 else "Past", "theme": "Learning systems", "source_url": "https://example.com/conference"} for index in range(4)],
+        "experts": [{"name": f"Expert {index}", "role": "Education leader", "perspective": "Human agency matters", "source_url": "https://example.com/expert"} for index in range(4)],
+        "summary": "Global debate is moving from access alone toward resilient, human-centered learning systems.",
+        "candidates": [{"theme": f"Theme {index}", "territory": "Systems and human agency"} for index in range(4)],
+        "recommendedTheme": "Theme not in candidates",
+        "rationale": "The evidence supports a practical systems theme.",
+        "strategicFit": 95,
+        "audienceResonance": 91,
+        "contentExtensibility": 88,
+        "reflectionPrompts": ["What should WISE challenge?", "Whose voice is missing?", "What action should follow?"],
+        "trace": ["Mapped country signals", "Reviewed conferences", "Synthesized expert voices"],
+    }
+    fake_response = SimpleNamespace(
+        id="theme-response",
+        output=[SimpleNamespace(type="web_search_call")],
+        output_text=__import__("json").dumps(payload),
+    )
+    app.dependency_overrides[get_responses_client] = lambda: SimpleNamespace(
+        responses=SimpleNamespace(create=lambda **_: fake_response)
+    )
+
+    response = test_client.post("/api/theme/research", json={"current_theme": "Existing theme"})
+
+    assert response.status_code == 502
+    assert response.json() == {"detail": "Model returned invalid theme research"}
+
+
+@pytest.mark.parametrize("current_theme", ["", "   ", "x" * 501])
+def test_theme_research_rejects_invalid_request(
+    client: tuple[TestClient, FakeCompletions], current_theme: str
+) -> None:
+    test_client, _ = client
+    calls: list[dict[str, object]] = []
+    app.dependency_overrides[get_responses_client] = lambda: SimpleNamespace(
+        responses=SimpleNamespace(create=lambda **kwargs: calls.append(kwargs))
+    )
+
+    response = test_client.post("/api/theme/research", json={"current_theme": current_theme})
+
+    assert response.status_code == 422
+    assert calls == []
+
+
 def test_speaker_discovery_requires_web_search_and_regional_split(
     client: tuple[TestClient, FakeCompletions],
     caplog: pytest.LogCaptureFixture,

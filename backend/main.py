@@ -10,7 +10,7 @@ from azure.identity import AzureCliCredential, ManagedIdentityCredential, get_be
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from openai import AzureOpenAI, OpenAI, OpenAIError
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
 
 
 logger = logging.getLogger(__name__)
@@ -81,45 +81,73 @@ class SessionGenerationResponse(BaseModel):
 class ThemeResearchRequest(BaseModel):
     current_theme: str = Field(min_length=1, max_length=500)
 
+    @field_validator("current_theme")
+    @classmethod
+    def current_theme_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Current theme must not be blank")
+        return value
+
 
 class ThemeCandidate(BaseModel):
-    theme: str
-    territory: str
+    theme: str = Field(min_length=3, max_length=120)
+    territory: str = Field(min_length=3, max_length=300)
 
 
 class CountrySignal(BaseModel):
-    country: str
-    signal: str
-    source_url: str
+    country: str = Field(min_length=2, max_length=100)
+    signal: str = Field(min_length=10, max_length=600)
+    source_url: HttpUrl
 
 
 class ConferenceSignal(BaseModel):
-    name: str
+    name: str = Field(min_length=2, max_length=200)
     horizon: Literal["Past", "Future"]
-    theme: str
-    source_url: str
+    theme: str = Field(min_length=3, max_length=500)
+    source_url: HttpUrl
 
 
 class ExpertSignal(BaseModel):
-    name: str
-    role: str
-    perspective: str
-    source_url: str
+    name: str = Field(min_length=2, max_length=150)
+    role: str = Field(min_length=2, max_length=200)
+    perspective: str = Field(min_length=10, max_length=600)
+    source_url: HttpUrl
 
 
 class ThemeResearchResponse(BaseModel):
     countries: list[CountrySignal] = Field(min_length=4, max_length=8)
     conferences: list[ConferenceSignal] = Field(min_length=4, max_length=8)
     experts: list[ExpertSignal] = Field(min_length=4, max_length=8)
-    summary: str
+    summary: str = Field(min_length=40, max_length=2_000)
     candidates: list[ThemeCandidate] = Field(min_length=4, max_length=4)
     recommendedTheme: str
-    rationale: str
+    rationale: str = Field(min_length=20, max_length=1_000)
     strategicFit: int = Field(ge=0, le=100)
     audienceResonance: int = Field(ge=0, le=100)
     contentExtensibility: int = Field(ge=0, le=100)
     reflectionPrompts: list[str] = Field(min_length=3, max_length=5)
     trace: list[str] = Field(min_length=3, max_length=6)
+
+    @model_validator(mode="after")
+    def validate_research_consistency(self) -> "ThemeResearchResponse":
+        if {conference.horizon for conference in self.conferences} != {"Past", "Future"}:
+            raise ValueError("Conference research must include both past and future events")
+
+        unique_fields = {
+            "countries": [item.country.casefold() for item in self.countries],
+            "conferences": [item.name.casefold() for item in self.conferences],
+            "experts": [item.name.casefold() for item in self.experts],
+            "theme candidates": [item.theme.casefold() for item in self.candidates],
+        }
+        for label, values in unique_fields.items():
+            if len(values) != len(set(values)):
+                raise ValueError(f"Theme research contains duplicate {label}")
+
+        candidate_names = {candidate.theme.casefold() for candidate in self.candidates}
+        if self.recommendedTheme.casefold() not in candidate_names:
+            raise ValueError("Recommended theme must be one of the candidates")
+        return self
 
 
 _speaker_cache: SpeakerDiscoveryResponse | None = None
