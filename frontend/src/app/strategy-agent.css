@@ -61,10 +61,26 @@
 .strategy-workflow.status-active > strong i { background: #007f87; }
 .strategy-workflow aside { grid-column: 1 / -1; display: flex; align-items: center; gap: 9px; }
 .strategy-workflow aside button { min-height: 36px; padding: 0 14px; border: 1px solid #c9ceca; color: #202321; background: #fff; font-size: 9px; font-weight: 900; cursor: pointer; }
+.strategy-workflow aside button.strategy-generate { display: flex; align-items: center; gap: 7px; }
+.strategy-workflow aside button.strategy-generate.running {
+  border-color: #007f87;
+  color: #fff;
+  background: #007f87;
+  animation: strategy-button-pulse 2.2s ease-in-out infinite;
+}
 .strategy-workflow aside button.primary { border-color: #007f87; color: #fff; background: #007f87; display: flex; align-items: center; gap: 7px; }
-.strategy-workflow aside button:disabled { cursor: wait; opacity: .65; }
+.strategy-workflow aside button:disabled { cursor: wait; }
 .strategy-workflow aside small { color: #747772; font-size: 9px; }
 .strategy-role-workspace .theme-list button:disabled { cursor: default; opacity: .78; }
+
+@keyframes strategy-button-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0, 127, 135, .28); }
+  50% { opacity: .62; box-shadow: 0 0 0 6px rgba(0, 127, 135, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .strategy-workflow aside button.strategy-generate.running { animation: none; }
+}
 
 @media (max-width: 760px) {
   .strategy-workflow { grid-template-columns: 1fr; }
