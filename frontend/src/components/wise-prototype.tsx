@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
-  Activity, AlertTriangle, ArrowLeft, ArrowRight, Bot, CalendarDays, Check, ChevronDown,
+  Activity, AlertTriangle, ArrowLeft, ArrowRight, Bot, CalendarDays, Check,
   CircleDollarSign, Clock3, FileBarChart, Globe2, LayoutDashboard, ListChecks,
   LogIn, LogOut, Menu, MessageSquareText, Network, Play, Plus, Search, ShieldAlert, Sparkles,
   Target, Users, WandSparkles, X,
@@ -12,6 +12,9 @@ import { ProgramBuilder } from "./program-builder";
 
 type Stage = "Overview" | "Planning" | "Stakeholders" | "Strategy" | "Budget" | "Content" | "Speakers" | "Risks" | "Live Ops" | "Variations" | "Report";
 type AgentStatus = "complete" | "running" | "queued" | "idle";
+type UserRole = "Executive Director" | "Strategy Lead" | "Speaker Lead" | "Content Curator" | "Operations Lead";
+type DemoUser = { email: string; name: string; initials: string; role: UserRole };
+type StrategyApprovalStatus = "Draft" | "Pending approval" | "Active";
 type SpeakerStage = "Identified" | "Invited" | "Accepted" | "Confirmed" | "Travel Planned" | "Ready";
 type SpeakerRecord = { name: string; role: string; region: string; stage: SpeakerStage; score: number; sourceUrl?: string };
 type DiscoveredSpeaker = { name: string; role: string; region: "USA" | "Europe" | "Africa" | "Asia"; score: number; source_url: string };
@@ -146,16 +149,21 @@ const programmeRows: ProgrammeRow[] = [
   ] },
   { label: "Plenary", time: "16:20–17:00", type: "plenary", sessions: [{ title: "Closing Plenary: Commitments for 2027", track: "Plenary", owner: "Strategy Agent", status: "Editorial review" }] },
 ];
-const profiles = ["Executive Director", "Strategy Lead", "Speaker Lead", "Content Curator", "Operations Lead"];
+const demoUsers: DemoUser[] = [
+  { email: "executive@wise.org", name: "Avery Morgan", initials: "AM", role: "Executive Director" },
+  { email: "strategy@wise.org", name: "Leila Haddad", initials: "LH", role: "Strategy Lead" },
+  { email: "speakers@wise.org", name: "Daniel Kim", initials: "DK", role: "Speaker Lead" },
+  { email: "content@wise.org", name: "Maya Santos", initials: "MS", role: "Content Curator" },
+  { email: "operations@wise.org", name: "Omar Rahman", initials: "OR", role: "Operations Lead" },
+];
 const initialPrograms: ProgramRecord[] = [{ name: "WISE Summit 2027", theme: "Innovating Education for a Changing World", location: "Doha", attendees: "3,000", speakers: "150", budget: "$10M", narrative: "A global operating environment for summit strategy, content, and delivery.", status: "Active" }];
 
 export function WisePrototype() {
-  const [loggedIn, setLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState<DemoUser | null>(null);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   const [active, setActive] = useState<Stage>("Overview");
-  const [role, setRole] = useState(profiles[0]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState(themes[0]);
   const [agents, setAgents] = useState(initialAgents);
@@ -170,6 +178,10 @@ export function WisePrototype() {
   const [strategyError, setStrategyError] = useState("");
   const [speakerError, setSpeakerError] = useState("");
   const [sessionError, setSessionError] = useState("");
+  const [strategyApprovalStatus, setStrategyApprovalStatus] = useState<StrategyApprovalStatus>("Draft");
+  const [hasGeneratedStrategy, setHasGeneratedStrategy] = useState(false);
+
+  const loggedIn = currentUser !== null;
 
   const showDiscoveredSpeakers = (candidates: DiscoveredSpeaker[]) => {
     setSpeakerRecords(candidates.map(candidate => ({
@@ -202,6 +214,7 @@ export function WisePrototype() {
   }, [active]);
 
   const runStrategyAgent = async () => {
+    if (currentUser?.role !== "Strategy Lead") return;
     if (agents.find(agent => agent.name === "Strategy Agent")?.status === "running") return;
 
     setStrategyError("");
@@ -220,6 +233,8 @@ export function WisePrototype() {
       const output = payload;
       setStrategyOutput(output);
       setSelectedTheme(output.recommendedTheme);
+      setHasGeneratedStrategy(true);
+      setStrategyApprovalStatus("Draft");
       setAgents(current => current.map(agent => agent.name === "Strategy Agent" ? { ...agent, status: "complete", task: `${output.candidates.length} strategic themes generated` } : agent));
       setLogs(current => [
         `Strategy Agent recommends “${output.recommendedTheme}”`,
@@ -295,8 +310,26 @@ export function WisePrototype() {
       setLoginError("Enter an email and password to continue.");
       return;
     }
+    const user = demoUsers.find(candidate => candidate.email.toLowerCase() === loginEmail.trim().toLowerCase());
+    if (!user) {
+      setLoginError("Use one of the listed demo accounts.");
+      return;
+    }
     setLoginError("");
-    setLoggedIn(true);
+    setCurrentUser(user);
+    setActive(user.role === "Strategy Lead" ? "Strategy" : "Overview");
+  };
+
+  const submitStrategy = () => {
+    if (currentUser?.role !== "Strategy Lead" || !hasGeneratedStrategy || strategyApprovalStatus !== "Draft") return;
+    setStrategyApprovalStatus("Pending approval");
+    setLogs(current => [`Strategy Lead submitted “${selectedTheme}” for Executive Director approval`, ...current].slice(0, 8));
+  };
+
+  const approveStrategy = () => {
+    if (currentUser?.role !== "Executive Director" || strategyApprovalStatus !== "Pending approval") return;
+    setStrategyApprovalStatus("Active");
+    setLogs(current => [`Executive Director approved “${selectedTheme}” as the active strategy`, ...current].slice(0, 8));
   };
 
   const goHome = () => {
@@ -309,18 +342,19 @@ export function WisePrototype() {
       <div className="proto-brand"><button className="brand-home" onClick={goHome} aria-label="Go to home screen"><img src="/images/logo.webp" alt="Qatar Foundation and WISE"/></button><div/><button onClick={() => setMenuOpen(false)} aria-label="Close menu"><X size={18}/></button></div>
       <div className="summit-pill"><i>W</i><div><b>WISE Summit 2027</b><small>15 April 2027 · Doha</small></div></div>
       <nav><label>Summit lifecycle</label>{nav.map(([label, Icon], index) => <button key={label} className={active === label ? "active" : ""} onClick={() => { setActive(label); setMenuOpen(false); }}><Icon size={17}/><span>{label}</span>{index > 0 && index < 4 && <em>{index}</em>}</button>)}</nav>
-      <div className="proto-user"><span>AM</span><div><b>Avery Morgan</b><small>{role}</small></div><button aria-label="Sign out" title="Sign out" onClick={() => setLoggedIn(false)}><LogOut size={16}/></button></div>
+      <div className="proto-user"><span>{currentUser?.initials}</span><div><b>{currentUser?.name}</b><small>{currentUser?.role}</small></div><button aria-label="Sign out" title="Sign out" onClick={() => setCurrentUser(null)}><LogOut size={16}/></button></div>
     </aside>
 
     <div className="proto-main">
-      <header className="proto-topbar"><button className="proto-menu" onClick={() => setMenuOpen(true)} aria-label="Open menu"><Menu size={19}/></button><div className="proto-search"><Search size={16}/><span>Search the summit operation</span></div><div className="role-switcher"><span>Viewing as</span><select aria-label="Operational profile" value={role} onChange={event => setRole(event.target.value)}>{profiles.map(profile => <option key={profile}>{profile}</option>)}</select><ChevronDown size={14}/></div></header>
+      <header className="proto-topbar"><button className="proto-menu" onClick={() => setMenuOpen(true)} aria-label="Open menu"><Menu size={19}/></button><div className="proto-search"><Search size={16}/><span>Search the summit operation</span></div><div className="signed-in-role"><span>Signed in as</span><b>{currentUser?.role}</b></div></header>
       <main className="proto-content">
         <div className="process-rail">{["Planning", "Stakeholders", "Strategy", "Content", "Live Ops"].map((step, index) => <button key={step} className={active === step || (active === "Overview" && index === 0) ? "current" : ""} onClick={() => setActive(step as Stage)}><span>{index + 1}</span><b>{step}</b>{index < 4 && <i/>}</button>)}</div>
         <ApprovalChannel stage={active}/>
         {active === "Overview" && <ExecutiveCenter setActive={setActive}/>} 
-        {active === "Strategy" && (
-          <StrategyView output={strategyOutput} selectedTheme={selectedTheme} setSelectedTheme={setSelectedTheme} status={agents.find(agent => agent.name === "Strategy Agent")?.status ?? "idle"} error={strategyError} onRun={runStrategyAgent} onApprove={() => setActive("Speakers")}/>
-        )}
+        {active === "Strategy" && <div className="strategy-role-workspace">
+          <StrategyWorkflow status={strategyApprovalStatus} role={currentUser?.role} hasGenerated={hasGeneratedStrategy} selectedTheme={selectedTheme} agentStatus={agents.find(agent => agent.name === "Strategy Agent")?.status ?? "idle"} onRun={runStrategyAgent} onSubmit={submitStrategy} onApprove={approveStrategy}/>
+          <StrategyView output={strategyOutput} selectedTheme={selectedTheme} setSelectedTheme={setSelectedTheme} status={agents.find(agent => agent.name === "Strategy Agent")?.status ?? "idle"} error={strategyError} onRun={runStrategyAgent} canEdit={currentUser?.role === "Strategy Lead" && strategyApprovalStatus === "Draft"}/>
+        </div>}
         {active === "Strategy" && <ThemeResearchBoard output={strategyOutput}/>} 
         {active === "Speakers" && (
           <SpeakersView speakers={speakerRecords} filter={speakerFilter} setFilter={setSpeakerFilter} status={agents.find(agent => agent.name === "Talent Scout")?.status ?? "idle"} error={speakerError} onStageChange={(name, stage) => { setSpeakerRecords(current => current.map(speaker => speaker.name === name ? { ...speaker, stage } : speaker)); setLogs(current => [`Speaker Lead moved ${name} to ${stage}`, ...current].slice(0, 5)); }} onRun={runGlobalDiscovery}/>
@@ -341,7 +375,13 @@ export function WisePrototype() {
     </div>
     <AgentRail agents={agents} logs={logs}/>
     {menuOpen && <button className="proto-scrim" aria-label="Dismiss menu" onClick={() => setMenuOpen(false)}/>} 
-  </div>{!loggedIn&&<div className="login-backdrop"><section className="login-dialog" role="dialog" aria-modal="true" aria-labelledby="login-title"><button className="login-logo" onClick={goHome} aria-label="Go to home screen"><img src="/images/logo.webp" alt="Qatar Foundation and WISE"/></button><span>WISE Summit 2027</span><h1 id="login-title">Command Center</h1><p>Sign in to monitor summit health, programme readiness, and agent activity.</p><form onSubmit={handleLogin}><label>Email address<input type="email" value={loginEmail} onChange={event=>setLoginEmail(event.target.value)} placeholder="name@wise.org" autoComplete="email" autoFocus/></label><label>Password<input type="password" value={loginPassword} onChange={event=>setLoginPassword(event.target.value)} placeholder="Enter any password" autoComplete="current-password"/></label>{loginError&&<div className="login-error" role="alert">{loginError}</div>}<button type="submit"><LogIn size={16}/>Sign in</button></form><small>Demo access</small></section></div>}</>;
+  </div>{!loggedIn&&<div className="login-backdrop"><section className="login-dialog" role="dialog" aria-modal="true" aria-labelledby="login-title"><button className="login-logo" onClick={goHome} aria-label="Go to home screen"><img src="/images/logo.webp" alt="Qatar Foundation and WISE"/></button><span>WISE Summit 2027</span><h1 id="login-title">Command Center</h1><p>Sign in with a role-based demo account. Any non-empty password is accepted.</p><form onSubmit={handleLogin}><label>Email address<input type="email" value={loginEmail} onChange={event=>setLoginEmail(event.target.value)} placeholder="name@wise.org" autoComplete="email" autoFocus/></label><label>Password<input type="password" value={loginPassword} onChange={event=>setLoginPassword(event.target.value)} placeholder="Enter any password" autoComplete="current-password"/></label>{loginError&&<div className="login-error" role="alert">{loginError}</div>}<button type="submit"><LogIn size={16}/>Sign in</button></form><div className="demo-accounts"><b>Demo accounts</b>{demoUsers.map(user=><button key={user.email} onClick={()=>setLoginEmail(user.email)}><span>{user.role}</span><small>{user.email}</small></button>)}</div></section></div>}</>;
+}
+
+function StrategyWorkflow({ status, role, hasGenerated, selectedTheme, agentStatus, onRun, onSubmit, onApprove }: { status: StrategyApprovalStatus; role?: UserRole; hasGenerated: boolean; selectedTheme: string; agentStatus: AgentStatus; onRun: () => void; onSubmit: () => void; onApprove: () => void }) {
+  const isStrategyLead = role === "Strategy Lead";
+  const isExecutiveDirector = role === "Executive Director";
+  return <section className={`strategy-workflow status-${status.toLowerCase().replace(" ", "-")}`}><div><span>Strategy governance</span><h2>{selectedTheme}</h2><p>{status === "Draft" ? hasGenerated ? "AI-generated strategy is ready for Strategy Lead review." : "Run the research agent to create a strategy proposal." : status === "Pending approval" ? "Submitted by Strategy Lead. Executive Director decision required." : "Approved by Executive Director and active across the summit plan."}</p></div><strong><i/>{status}</strong><aside>{isStrategyLead&&status === "Draft"&&<button onClick={onRun} disabled={agentStatus === "running"}>{agentStatus === "running" ? "Generating strategy" : hasGenerated ? "Regenerate strategy" : "Generate strategy with AI"}</button>}{isStrategyLead&&hasGenerated&&status === "Draft"&&<button className="primary" onClick={onSubmit}><ListChecks size={15}/>Submit for approval</button>}{isStrategyLead&&status !== "Draft"&&<small>{status === "Pending approval" ? "Locked while Executive Director reviews" : "Approved strategy is read only"}</small>}{isExecutiveDirector&&status === "Pending approval"&&<button className="primary" onClick={onApprove}><Check size={15}/>Approve strategy</button>}{!isStrategyLead&&!isExecutiveDirector&&<small>View only for {role}</small>}{isExecutiveDirector&&status !== "Pending approval"&&<small>{status === "Active" ? "No action required" : "Awaiting Strategy Lead submission"}</small>}</aside></section>;
 }
 
 function ExecutiveCenter({ setActive }: { setActive: (stage: Stage) => void }) {
@@ -361,9 +401,9 @@ function ProgramsView({ programs, onCreate }: { programs: ProgramRecord[]; onCre
   return <><div className="programs-heading"><div><span>Program portfolio</span><h1>Summits and operating environments</h1><p>Create and manage each summit from one shared command center.</p></div><button onClick={()=>setCreating(true)}><Plus size={16}/>Create Program</button></div>{createdName&&<div className="program-success"><Check size={16}/><p><b>{createdName} is ready.</b>Strategy, speakers, content, planning, budget, and risk workspaces were created.</p></div>}<section className="program-list">{programs.map(program=><article key={program.name}><header><span>{program.status}</span><CalendarDays size={18}/></header><h2>{program.name}</h2><p>{program.theme}</p><dl><div><dt>Location</dt><dd>{program.location}</dd></div><div><dt>Attendees</dt><dd>{program.attendees}</dd></div><div><dt>Speakers</dt><dd>{program.speakers}</dd></div><div><dt>Budget</dt><dd>{program.budget}</dd></div></dl><footer><small>{program.narrative}</small><button aria-label={`Open ${program.name}`}><ArrowRight size={16}/></button></footer></article>)}</section></>;
 }
 
-function StrategyView({ output, selectedTheme, setSelectedTheme, status, error, onRun, onApprove }: { output: StrategyOutput; selectedTheme: string; setSelectedTheme: (theme: string) => void; status: AgentStatus; error: string; onRun: () => void; onApprove: () => void }) {
+function StrategyView({ output, selectedTheme, setSelectedTheme, status, error, onRun, canEdit }: { output: StrategyOutput; selectedTheme: string; setSelectedTheme: (theme: string) => void; status: AgentStatus; error: string; onRun: () => void; canEdit: boolean }) {
   const selectedCandidate = output.candidates.find(candidate => candidate.theme === selectedTheme) ?? output.candidates[0];
-  return <><PageHead eyebrow="Stage 01 · Strategy" title="Define the summit’s strategic spine." copy="Turn audience signals, WISE values, and market context into a defensible theme." action={status === "running" ? "Running Strategy Agent" : "Run Strategy Agent"} onAction={onRun} actionDisabled={status === "running"}/><div className="agent-map"><div className={`agent-node central ${status}`}><Bot size={21}/><b>Strategy Agent</b><small>{status === "running" ? "Synthesizing live signals" : status === "complete" ? "Synthesis complete" : "Ready to orchestrate"}</small></div>{[["Audience Research", "12 signals"],["WISE Archive", "5 summits"],["Market Lens", "8 trends"],["Impact Model", "6 outcomes"]].map(([name,note], index) => <div className={`agent-node node-${index}`} key={name}><Sparkles size={16}/><b>{name}</b><small>{note}</small></div>)}</div>{error&&<div className="strategy-error" role="alert"><AlertTriangle size={16}/><span>{error}</span><button onClick={onRun}>Retry</button></div>}<section className="strategy-grid"><article className="proto-panel"><PanelTitle eyebrow="Theme candidates" title="Select the narrative direction"/><div className="theme-list">{output.candidates.map((candidate,index) => <button className={selectedTheme === candidate.theme ? "selected" : ""} key={candidate.theme} onClick={() => setSelectedTheme(candidate.theme)}><span>{String(index+1).padStart(2,"0")}</span><div><b>{candidate.theme}</b><small>{candidate.territory}</small></div>{selectedTheme === candidate.theme && <Check size={17}/>}</button>)}</div></article><article className="proto-panel rationale"><PanelTitle eyebrow="Agent rationale" title={selectedCandidate?.theme ?? output.recommendedTheme}/><blockquote>“{output.rationale}”</blockquote><label>Strategic fit <b>{output.strategicFit}%</b></label><label>Audience resonance <b>{output.audienceResonance}%</b></label><label>Content extensibility <b>{output.contentExtensibility}%</b></label><button onClick={onApprove}><Check size={16}/> Approve strategic direction</button></article></section></>;
+  return <><PageHead eyebrow="Stage 01 · Strategy" title="Define the summit’s strategic spine." copy="Turn audience signals, WISE values, and market context into a defensible theme." action={canEdit ? status === "running" ? "Running Strategy Agent" : "Run Strategy Agent" : undefined} onAction={canEdit ? onRun : undefined} actionDisabled={status === "running"}/><div className="agent-map"><div className={`agent-node central ${status}`}><Bot size={21}/><b>Strategy Agent</b><small>{status === "running" ? "Synthesizing live signals" : status === "complete" ? "Synthesis complete" : "Ready to orchestrate"}</small></div>{[["Audience Research", "12 signals"],["WISE Archive", "5 summits"],["Market Lens", "8 trends"],["Impact Model", "6 outcomes"]].map(([name,note], index) => <div className={`agent-node node-${index}`} key={name}><Sparkles size={16}/><b>{name}</b><small>{note}</small></div>)}</div>{error&&<div className="strategy-error" role="alert"><AlertTriangle size={16}/><span>{error}</span>{canEdit&&<button onClick={onRun}>Retry</button>}</div>}<section className="strategy-grid"><article className="proto-panel"><PanelTitle eyebrow="Theme candidates" title={canEdit ? "Select the narrative direction" : "Proposed narrative direction"}/><div className="theme-list">{output.candidates.map((candidate,index) => <button className={selectedTheme === candidate.theme ? "selected" : ""} key={candidate.theme} onClick={() => canEdit && setSelectedTheme(candidate.theme)} disabled={!canEdit}><span>{String(index+1).padStart(2,"0")}</span><div><b>{candidate.theme}</b><small>{candidate.territory}</small></div>{selectedTheme === candidate.theme && <Check size={17}/>}</button>)}</div></article><article className="proto-panel rationale"><PanelTitle eyebrow="Agent rationale" title={selectedCandidate?.theme ?? output.recommendedTheme}/><blockquote>“{output.rationale}”</blockquote><label>Strategic fit <b>{output.strategicFit}%</b></label><label>Audience resonance <b>{output.audienceResonance}%</b></label><label>Content extensibility <b>{output.contentExtensibility}%</b></label></article></section></>;
 }
 
 function SpeakersView({ speakers, filter, setFilter, status, error, onStageChange, onRun }: { speakers: SpeakerRecord[]; filter: string; setFilter: (value:string)=>void; status: AgentStatus; error: string; onStageChange:(name:string,stage:SpeakerStage)=>void; onRun:()=>void }) {

@@ -38,3 +38,36 @@
     box-shadow: 0 0 0 7px #25bfa312;
   }
 }
+
+.strategy-workflow {
+  margin-bottom: 18px;
+  padding: 18px 20px;
+  border-left: 4px solid #8a918d;
+  background: #fff;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px 24px;
+  align-items: start;
+}
+
+.strategy-workflow.status-pending-approval { border-color: #d59b2a; }
+.strategy-workflow.status-active { border-color: #007f87; }
+.strategy-workflow span { color: #747772; font-size: 8px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; }
+.strategy-workflow h2 { margin: 5px 0; font-family: var(--font-display), serif; font-size: 21px; letter-spacing: 0; }
+.strategy-workflow p { margin: 0; color: #747772; font-size: 10px; }
+.strategy-workflow > strong { display: flex; align-items: center; gap: 7px; color: #424744; font-size: 9px; text-transform: uppercase; }
+.strategy-workflow > strong i { width: 8px; height: 8px; border-radius: 50%; background: #8a918d; }
+.strategy-workflow.status-pending-approval > strong i { background: #d59b2a; }
+.strategy-workflow.status-active > strong i { background: #007f87; }
+.strategy-workflow aside { grid-column: 1 / -1; display: flex; align-items: center; gap: 9px; }
+.strategy-workflow aside button { min-height: 36px; padding: 0 14px; border: 1px solid #c9ceca; color: #202321; background: #fff; font-size: 9px; font-weight: 900; cursor: pointer; }
+.strategy-workflow aside button.primary { border-color: #007f87; color: #fff; background: #007f87; display: flex; align-items: center; gap: 7px; }
+.strategy-workflow aside button:disabled { cursor: wait; opacity: .65; }
+.strategy-workflow aside small { color: #747772; font-size: 9px; }
+.strategy-role-workspace .theme-list button:disabled { cursor: default; opacity: .78; }
+
+@media (max-width: 760px) {
+  .strategy-workflow { grid-template-columns: 1fr; }
+  .strategy-workflow > strong { grid-row: 2; }
+  .strategy-workflow aside { grid-column: 1; flex-wrap: wrap; }
+}
