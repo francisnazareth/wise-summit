@@ -5,7 +5,7 @@ import {
   Activity, AlertTriangle, ArrowLeft, ArrowRight, Bot, CalendarDays, Check,
   CircleDollarSign, Clock3, FileBarChart, Globe2, LayoutDashboard, ListChecks,
   LogIn, LogOut, Menu, MessageSquareText, Network, Play, Plus, Search, ShieldAlert, Sparkles,
-  Target, Users, WandSparkles, X,
+  Target, UserRound, Users, WandSparkles, X,
 } from "lucide-react";
 import { BudgetView, LiveOperationsView, ReportsView, RiskView, StakeholdersView, TimelineView, VariationsView } from "./operational-views";
 import { ProgramBuilder } from "./program-builder";
@@ -150,11 +150,11 @@ const programmeRows: ProgrammeRow[] = [
   { label: "Plenary", time: "16:20–17:00", type: "plenary", sessions: [{ title: "Closing Plenary: Commitments for 2027", track: "Plenary", owner: "Strategy Agent", status: "Editorial review" }] },
 ];
 const demoUsers: DemoUser[] = [
-  { email: "executive@wise.org", name: "Avery Morgan", initials: "AM", role: "Executive Director" },
-  { email: "strategy@wise.org", name: "Leila Haddad", initials: "LH", role: "Strategy Lead" },
-  { email: "speakers@wise.org", name: "Daniel Kim", initials: "DK", role: "Speaker Lead" },
-  { email: "content@wise.org", name: "Maya Santos", initials: "MS", role: "Content Curator" },
-  { email: "operations@wise.org", name: "Omar Rahman", initials: "OR", role: "Operations Lead" },
+  { email: "executive@wise-qatar.org", name: "Avery Morgan", initials: "AM", role: "Executive Director" },
+  { email: "strategy@wise-qatar.org", name: "Leila Haddad", initials: "LH", role: "Strategy Lead" },
+  { email: "speakers@wise-qatar.org", name: "Daniel Kim", initials: "DK", role: "Speaker Lead" },
+  { email: "content@wise-qatar.org", name: "Maya Santos", initials: "MS", role: "Content Curator" },
+  { email: "operations@wise-qatar.org", name: "Omar Rahman", initials: "OR", role: "Operations Lead" },
 ];
 const initialPrograms: ProgramRecord[] = [{ name: "WISE Summit 2027", theme: "Innovating Education for a Changing World", location: "Doha", attendees: "3,000", speakers: "150", budget: "$10M", narrative: "A global operating environment for summit strategy, content, and delivery.", status: "Active" }];
 
@@ -179,7 +179,7 @@ export function WisePrototype() {
   const [speakerError, setSpeakerError] = useState("");
   const [sessionError, setSessionError] = useState("");
   const [strategyApprovalStatus, setStrategyApprovalStatus] = useState<StrategyApprovalStatus>("Draft");
-  const [hasGeneratedStrategy, setHasGeneratedStrategy] = useState(false);
+  const [hasGeneratedStrategy, setHasGeneratedStrategy] = useState(true);
 
   const loggedIn = currentUser !== null;
 
@@ -317,7 +317,8 @@ export function WisePrototype() {
     }
     setLoginError("");
     setCurrentUser(user);
-    setActive(user.role === "Strategy Lead" ? "Strategy" : "Overview");
+    const hasStrategyAction = user.role === "Strategy Lead" || (user.role === "Executive Director" && strategyApprovalStatus === "Pending approval");
+    setActive(hasStrategyAction ? "Strategy" : "Overview");
   };
 
   const submitStrategy = () => {
@@ -346,7 +347,7 @@ export function WisePrototype() {
     </aside>
 
     <div className="proto-main">
-      <header className="proto-topbar"><button className="proto-menu" onClick={() => setMenuOpen(true)} aria-label="Open menu"><Menu size={19}/></button><div className="proto-search"><Search size={16}/><span>Search the summit operation</span></div><div className="signed-in-role"><span>Signed in as</span><b>{currentUser?.role}</b></div></header>
+      <header className="proto-topbar"><button className="proto-menu" onClick={() => setMenuOpen(true)} aria-label="Open menu"><Menu size={19}/></button><div className="proto-search"><Search size={16}/><span>Search the summit operation</span></div><div className="signed-in-role"><span>Signed in as</span><b>{currentUser?.role}</b></div><button className="topbar-signout" onClick={() => setCurrentUser(null)} title="Sign out"><UserRound size={16}/><span>Sign out</span></button></header>
       <main className="proto-content">
         <div className="process-rail">{["Planning", "Stakeholders", "Strategy", "Content", "Live Ops"].map((step, index) => <button key={step} className={active === step || (active === "Overview" && index === 0) ? "current" : ""} onClick={() => setActive(step as Stage)}><span>{index + 1}</span><b>{step}</b>{index < 4 && <i/>}</button>)}</div>
         <ApprovalChannel stage={active}/>
@@ -375,7 +376,7 @@ export function WisePrototype() {
     </div>
     <AgentRail agents={agents} logs={logs}/>
     {menuOpen && <button className="proto-scrim" aria-label="Dismiss menu" onClick={() => setMenuOpen(false)}/>} 
-  </div>{!loggedIn&&<div className="login-backdrop"><section className="login-dialog" role="dialog" aria-modal="true" aria-labelledby="login-title"><button className="login-logo" onClick={goHome} aria-label="Go to home screen"><img src="/images/logo.webp" alt="Qatar Foundation and WISE"/></button><span>WISE Summit 2027</span><h1 id="login-title">Command Center</h1><p>Sign in with a role-based demo account. Any non-empty password is accepted.</p><form onSubmit={handleLogin}><label>Email address<input type="email" value={loginEmail} onChange={event=>setLoginEmail(event.target.value)} placeholder="name@wise.org" autoComplete="email" autoFocus/></label><label>Password<input type="password" value={loginPassword} onChange={event=>setLoginPassword(event.target.value)} placeholder="Enter any password" autoComplete="current-password"/></label>{loginError&&<div className="login-error" role="alert">{loginError}</div>}<button type="submit"><LogIn size={16}/>Sign in</button></form><div className="demo-accounts"><b>Demo accounts</b>{demoUsers.map(user=><button key={user.email} onClick={()=>setLoginEmail(user.email)}><span>{user.role}</span><small>{user.email}</small></button>)}</div></section></div>}</>;
+  </div>{!loggedIn&&<div className="login-backdrop"><section className="login-dialog" role="dialog" aria-modal="true" aria-labelledby="login-title"><button className="login-logo" onClick={goHome} aria-label="Go to home screen"><img src="/images/logo.webp" alt="Qatar Foundation and WISE"/></button><span>WISE Summit 2027</span><h1 id="login-title">Command Center</h1><p>Sign in with a role-based demo account. Any non-empty password is accepted.</p><form onSubmit={handleLogin}><label>Email address<input type="email" value={loginEmail} onChange={event=>setLoginEmail(event.target.value)} placeholder="name@wise-qatar.org" autoComplete="email" autoFocus/></label><label>Password<input type="password" value={loginPassword} onChange={event=>setLoginPassword(event.target.value)} placeholder="Enter any password" autoComplete="current-password"/></label>{loginError&&<div className="login-error" role="alert">{loginError}</div>}<button type="submit"><LogIn size={16}/>Sign in</button></form><div className="demo-accounts"><b>Demo accounts</b>{demoUsers.map(user=><button key={user.email} onClick={()=>setLoginEmail(user.email)}><span>{user.role}</span><small>{user.email}</small></button>)}</div></section></div>}</>;
 }
 
 function StrategyWorkflow({ status, role, hasGenerated, selectedTheme, agentStatus, onRun, onSubmit, onApprove }: { status: StrategyApprovalStatus; role?: UserRole; hasGenerated: boolean; selectedTheme: string; agentStatus: AgentStatus; onRun: () => void; onSubmit: () => void; onApprove: () => void }) {
